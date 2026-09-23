@@ -3,18 +3,84 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sirius 的 Vibe Coding 练习场</title>
+  <title>重走太阳系 · 可交互的太阳系科普网页</title>
+  <meta name="description" content="用图形、动画和中文引导词，帮你一点点看懂太阳系。">
+  <link rel="stylesheet" href="styles/main.css">
 </head>
 <body>
 
-  <!--
-    Day 2 的占位页，只干一件事：证明「仓库通了」和「文件真的传上去了」。
-    真正的网站功能从 Day 7 的 MVP 才开始写，所以现在这里故意保持最简。
-  -->
+  <header class="page-header">
+    <h1>重走太阳系</h1>
+    <p class="subtitle">Day 7 · 效果预览（点一颗行星，看它的资料）</p>
+  </header>
 
-  <h1>Hello，Vibe Coding！</h1>
+  <main id="scene-wrap">
+    <svg id="solar-scene" viewBox="-450 -450 900 900" role="img"
+         aria-labelledby="scene-title scene-desc">
+      <title id="scene-title">太阳系 2D 轨道图</title>
+      <desc id="scene-desc">太阳位于中心，行星沿各自的椭圆轨道绕太阳运行。</desc>
+    </svg>
+  </main>
 
-  <p>这是 Day 2 的占位首页。仓库已经通了，后面几天的东西会慢慢长在这里。</p>
+  <!-- 调控区（PRD F3「教学机关」）。
+       三块控件：时间流速 / 尺度切换 / 教学对比。
+       按钮由 src/controls.js 按 SOLAR_CONFIG 里的档位生成，
+       这样改档位只需要改数据文件，不用动 HTML。 -->
+  <section id="control-bar" class="control-bar" aria-label="调控区">
+    <div class="ctrl-group">
+      <span class="ctrl-label">时间流速</span>
+      <div id="ctrl-speed" class="btn-row"></div>
+    </div>
+    <div class="ctrl-group">
+      <span class="ctrl-label">轨道比例</span>
+      <div id="ctrl-scale" class="btn-row"></div>
+    </div>
+    <div class="ctrl-group">
+      <span class="ctrl-label">教学对比</span>
+      <div class="btn-row">
+        <button type="button" id="ctrl-compare" class="btn btn-toggle"
+                aria-expanded="false" aria-controls="compare-panel">看公转快慢</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 教学对比面板：把 8 颗行星的公转周期并排画成条，
+       一眼看出「水星 88 天」和「海王星 59800 天」差多少。
+       内容由 src/controls.js 生成。 -->
+  <div id="compare-panel" class="compare-panel" hidden></div>
+
+  <footer class="page-footer">
+    <p>数据来源：NASA Planetary Fact Sheet ／ NASA Sun Fact Sheet（逐条标注见 <code>src/data/bodies.js</code>）</p>
+  </footer>
+
+  <!-- 3D 聚焦遮罩（点击天体后出现）。
+       canvas 由 src/focus3d.js 生成，Three.js 也是那时才开始加载。 -->
+  <div id="focus-overlay" class="focus-overlay" hidden>
+    <div class="focus-top">
+      <h2 id="focus-title" class="focus-title"></h2>
+      <p id="focus-note" class="focus-note"></p>
+    </div>
+    <button id="focus-close" class="focus-close" type="button" aria-label="关闭 3D 特写">×</button>
+    <div id="focus-stage" class="focus-stage"></div>
+  </div>
+
+  <!-- 资料卡（点击天体后出现）。
+       这里只放空壳，具体内容由 src/scene2d.js 填进去。 -->
+  <aside id="body-card" class="body-card" hidden>
+    <button id="card-close" class="card-close" type="button" aria-label="关闭资料卡">×</button>
+    <h2 id="card-title" class="card-title"></h2>
+    <p id="card-type" class="card-type"></p>
+    <p class="card-legend">下面的条越长，表示这项数值越大；竖线是地球所在的位置。</p>
+    <div id="card-facts" class="card-facts"></div>
+    <div id="card-compare" class="card-compare"></div>
+    <p id="card-source" class="card-source"></p>
+  </aside>
+
+  <script src="src/data/bodies.js"></script>
+  <script src="src/fallback.js"></script>
+  <script src="src/scene2d.js"></script>
+  <script src="src/controls.js"></script>
+  <script src="src/focus3d.js"></script>
 
 </body>
 </html>

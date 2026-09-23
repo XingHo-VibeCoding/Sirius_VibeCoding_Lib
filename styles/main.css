@@ -1,0 +1,610 @@
+/* ============================================================
+ * styles/main.css —— 全部样式
+ * 底线（PRD 5.3）：不出现白屏 / 卡死；手机端无横向溢出
+ * ============================================================ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+  background: radial-gradient(circle at 50% 38%, #16203c 0%, #070b18 72%);
+  color: #e8ecf5;
+  font-family: 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+/* ---------- 页头 ---------- */
+.page-header {
+  text-align: center;
+  padding: 22px 16px 6px;
+}
+
+.page-header h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: 2px;
+}
+
+.page-header .subtitle {
+  margin: 7px 0 0;
+  font-size: 13px;
+  color: #8e9ab5;
+}
+
+/* ---------- 主图区 ---------- */
+#scene-wrap {
+  flex: 1;
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+}
+
+#solar-scene {
+  width: 100%;
+  height: auto;
+  max-height: 74vh;
+  display: block;
+}
+
+/* ---------- 页脚 ---------- */
+.page-footer {
+  padding: 6px 16px 20px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #6b7691;
+  text-align: center;
+}
+
+/* ============================================================
+ * 资料卡（点击天体后出现）
+ * 依据：PRD 5.2-4「数字必须配图形化对比」、5.2-5「面向零基础」
+ * ============================================================ */
+
+.body-card {
+  position: fixed;
+  top: 22px;
+  right: 22px;
+  width: 336px;
+  max-height: calc(100vh - 44px);
+  overflow-y: auto;
+  padding: 18px 18px 14px;
+  background: rgba(17, 24, 44, 0.95);
+  border: 1px solid rgba(140, 165, 220, 0.26);
+  border-radius: 14px;
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.55);
+  z-index: 50;
+}
+
+.body-card[hidden] {
+  display: none;
+}
+
+.card-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 17px;
+  line-height: 1;
+  color: #8e9ab5;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.card-close:hover {
+  color: #e8ecf5;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.card-title {
+  margin: 0 26px 4px 0;
+  font-size: 19px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.card-title .card-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.card-title .card-en {
+  font-size: 12px;
+  font-weight: 400;
+  color: #7c88a5;
+  letter-spacing: 0.3px;
+}
+
+.card-type {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #8e9ab5;
+}
+
+.card-legend {
+  margin: 0 0 12px;
+  padding: 7px 9px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #8592ad;
+  background: rgba(255, 255, 255, 0.045);
+  border-radius: 7px;
+}
+
+/* ---------- 一项数据 ---------- */
+.fact {
+  padding: 9px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.fact-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.fact-label {
+  font-size: 12px;
+  color: #9aa6c0;
+}
+
+.fact-value {
+  font-size: 13px;
+  color: #e8ecf5;
+}
+
+.fact-note {
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #7c88a5;
+}
+
+/* ---------- 对比条 ---------- */
+.cmp {
+  position: relative;
+  height: 7px;
+  margin-top: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.cmp-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #4a6ea8, #7fa8e0);
+  border-radius: 4px;
+}
+
+/* 地球所在的刻度：固定在正中间，作为参照 */
+.cmp-earth {
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  width: 2px;
+  height: 11px;
+  margin-left: -1px;
+  background: #f2b230;
+}
+
+/* ---------- 与地球对比 ---------- */
+.card-compare {
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.card-compare h3 {
+  margin: 0 0 3px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #cfd8ea;
+}
+
+.compare-hint {
+  margin: 0 0 8px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #7c88a5;
+}
+
+.compare-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+
+.compare-label {
+  color: #9aa6c0;
+}
+
+.compare-value {
+  color: #dfe6f3;
+}
+
+/* ---------- 来源行 ---------- */
+.card-source {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 11px;
+  line-height: 1.7;
+  color: #7c88a5;
+}
+
+.card-source a {
+  color: #7fa8e0;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.card-source a:hover {
+  text-decoration: underline;
+}
+
+.source-warn {
+  display: inline-block;
+  margin-bottom: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  color: #f2b230;
+  background: rgba(242, 178, 48, 0.12);
+  border-radius: 5px;
+}
+
+/* ============================================================
+ * 调控区（PRD F3「教学机关」）
+ * ============================================================ */
+
+.control-bar {
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px 24px;
+  padding: 12px 16px 6px;
+}
+
+.ctrl-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ctrl-label {
+  font-size: 12px;
+  color: #7c88a5;
+  white-space: nowrap;
+}
+
+.btn-row {
+  display: flex;
+  gap: 4px;
+}
+
+.btn {
+  padding: 5px 11px;
+  font-family: inherit;
+  font-size: 12px;
+  color: #a8b4cc;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  color: #e8ecf5;
+  background: rgba(255, 255, 255, 0.11);
+}
+
+.btn.on {
+  color: #0e1526;
+  background: #7fa8e0;
+  border-color: #7fa8e0;
+}
+
+/* ---------- 教学对比面板 ---------- */
+.compare-panel {
+  width: 100%;
+  max-width: 640px;
+  margin: 6px 0 0;
+  padding: 15px 17px 13px;
+  background: rgba(17, 24, 44, 0.92);
+  border: 1px solid rgba(140, 165, 220, 0.22);
+  border-radius: 12px;
+}
+
+.compare-panel[hidden] {
+  display: none;
+}
+
+.compare-title {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #e8ecf5;
+}
+
+.compare-sub {
+  margin: 0 0 12px;
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: #8592ad;
+}
+
+.compare-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* 「cyc-」是周期对比条专用前缀，和资料卡里的「cmp-」区分开 */
+.cyc-line {
+  display: grid;
+  grid-template-columns: 52px 1fr 64px;
+  align-items: center;
+  gap: 9px;
+  font-size: 12px;
+}
+
+.cyc-name {
+  color: #b6c1d6;
+}
+
+.cyc-bar {
+  position: relative;
+  display: block;
+  height: 9px;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.cyc-fill {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  opacity: 0.85;
+}
+
+.cyc-num {
+  text-align: right;
+  color: #cfd8ea;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 地球这一行标成金色，它是参照物 */
+.cyc-line.is-earth .cyc-name,
+.cyc-line.is-earth .cyc-num {
+  color: #f2b230;
+}
+
+.compare-foot {
+  margin: 11px 0 0;
+  padding-top: 9px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  line-height: 1.7;
+  color: #7c88a5;
+}
+
+/* ============================================================
+ * 3D 聚焦遮罩（src/focus3d.js）
+ * z-index 比资料卡低：这样点开天体时，3D 球和资料卡能同时看到
+ * ============================================================ */
+
+.focus-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: radial-gradient(circle at 50% 44%, rgba(18, 27, 52, 0.95), rgba(4, 6, 14, 0.98));
+}
+
+.focus-overlay[hidden] {
+  display: none;
+}
+
+.focus-stage {
+  position: absolute;
+  inset: 0;
+  cursor: grab;
+}
+
+.focus-stage:active {
+  cursor: grabbing;
+}
+
+.focus-stage canvas {
+  display: block;
+}
+
+.focus-top {
+  position: absolute;
+  top: 20px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.focus-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 500;
+  color: #e8ecf5;
+}
+
+.focus-note {
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  color: #8592ad;
+}
+
+.focus-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 3;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  font-size: 19px;
+  line-height: 1;
+  color: #8e9ab5;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.focus-close:hover {
+  color: #e8ecf5;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* ============================================================
+ * 兜底提示条（src/fallback.js）
+ * ============================================================ */
+
+.fallback-bar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 18px;
+  z-index: 80;
+  max-width: min(560px, calc(100vw - 24px));
+  padding: 10px 14px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #ffe3b0;
+  background: rgba(62, 43, 12, 0.96);
+  border: 1px solid rgba(242, 178, 48, 0.45);
+  border-radius: 9px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.fallback-bar[hidden] {
+  display: none;
+}
+
+/* ---------- 手机端 ---------- */
+@media (max-width: 480px) {
+  .page-header {
+    padding: 16px 14px 4px;
+  }
+
+  .page-header h1 {
+    font-size: 17px;
+  }
+
+  .page-header .subtitle {
+    font-size: 12px;
+  }
+
+  .page-footer {
+    font-size: 11px;
+  }
+
+  /* 手机上资料卡从右侧栏改成底部卡片，避免遮住画面又不用左右缩 */
+  .body-card {
+    top: auto;
+    right: 10px;
+    bottom: 10px;
+    left: 10px;
+    width: auto;
+    max-height: 58vh;
+    padding: 15px 15px 12px;
+  }
+
+  .card-title {
+    font-size: 17px;
+  }
+
+  .fact-value {
+    font-size: 12.5px;
+  }
+
+  /* 调控区：手机上按钮换行排，别挤成一条 */
+  .control-bar {
+    gap: 8px 14px;
+    padding: 10px 12px 4px;
+  }
+
+  .ctrl-group {
+    gap: 6px;
+  }
+
+  .ctrl-label {
+    font-size: 11px;
+  }
+
+  .btn {
+    padding: 5px 9px;
+    font-size: 11.5px;
+  }
+
+  .compare-panel {
+    width: calc(100% - 20px);
+    max-width: none;
+    margin: 6px 0 0;
+    padding: 13px 13px 11px;
+  }
+
+  .cyc-line {
+    grid-template-columns: 46px 1fr 58px;
+    font-size: 11.5px;
+  }
+
+  /* 3D 遮罩：手机上资料卡占了下半屏，把球往上挪，别被挡住。
+     底部这块留白由 focus3d.js 的 resize() 读出来减掉。 */
+  .focus-stage {
+    padding-bottom: 46vh;
+  }
+
+  .focus-top {
+    top: 14px;
+  }
+
+  .focus-title {
+    font-size: 15px;
+  }
+
+  .focus-note {
+    padding: 0 14px;
+    font-size: 11px;
+  }
+}
