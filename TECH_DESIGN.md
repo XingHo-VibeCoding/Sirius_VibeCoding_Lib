@@ -14,6 +14,9 @@
 | v1.0 | 2026-09-20 | 初稿：技术路线、项目结构、数据对象、内部模块接口、错误处理、可配置项、部署与回滚、迭代节奏。**「数据流」一节留空，由板块③ 补齐** |
 | **v1.1** | **2026-09-22** | 关闭未决 #1（**哈雷彗星数据来源**确认为 NASA/JPL SBDB 官方 API）。**第 3.1 节 `SolarBody` 新增 `eccentricity` 字段**（Day 7 实现椭圆轨道所需，数据取自 NASA fact sheet 的 `Orbital Eccentricity` 行）。文档结构未变 |
 | **v1.2** | **2026-09-23** | **第 7 节「可配置项」由示意值改为实测值**，并补入 `SCALE_MODE_OPTIONS`。其中 `DEFAULT_TIME_SCALE` 由「实时」改为**「演示」**——实测「实时」档违反 PRD 验收 V1（原因见第 7 节说明）。另在此记录 Three.js 版本号（第 1.4 节风险 2 要求） |
+| **v1.3** | **2026-09-23** | **Day 8 第 1 步**：第 2 节项目结构**新增 `src/states.js`**（页面状态机，承担四种状态）。同时新增**过渡屏** `#intro-overlay`——它一个界面同时干三件事：网页名 + 网页介绍 + 四态里的 `loading`。过渡屏的兜底策略见第 6 节 |
+| **v1.4** | **2026-09-23** | **Day 8 第 3 步**：第 2 节项目结构**新增 `src/catalog.js`**（天体目录）。第 4 节 2D 主图一行**新增接口 `selectBody(bodyId)`**——目录点卡片时要能等同于"在图上点了它一次"，而原接口表里没有这个动作，只有 `onBodyClick(callback)`（注册回调，方向相反），故补上 |
+| **v1.5** | **2026-09-24** | **Day 8 第 4 步**：**四态接线**。第 4 节**新增 `src/states.js` 一行**（原先第 2 节列了这个文件、第 4 节漏了接口）。页面级四态由 `<body data-page-state>` 承载，各区表现由 CSS 读它决定；数据层给不出结论时，`states.js` 也能自己判定 `empty` / `error`（判据见该文件的 `dataVerdict()`） |
 
 ---
 
@@ -111,7 +114,9 @@ Sirius_VibeCoding_Lib/
 ├── src/
 │   ├── data/
 │   │   └── bodies.js         全部天体数据 + 来源标注（唯一数据源）
+│   ├── states.js             页面状态机：加载中 / 成功 / 空 / 错误（Day 8）
 │   ├── scene2d.js            2D 主图：画轨道与天体、处理点击与缩放平移
+│   ├── catalog.js            天体目录：11 张卡片，点卡片 = 点天体（Day 8）
 │   ├── focus3d.js            3D 聚焦：按需加载 Three.js，渲染天体特写
 │   ├── controls.js           调控区：时间流速 / 尺度切换 / 教学对比
 │   ├── guide.js              引导主线：12 站的推进与文案
@@ -178,8 +183,10 @@ Sirius_VibeCoding_Lib/
 
 | 模块 | 文件 | 暴露的接口 | 作用 |
 |---|---|---|---|
-| 数据模块 | `src/data/bodies.js` | 全局变量 `SOLAR_BODIES`（天体数组）、`GUIDE_STATIONS`（引导站数组） | 提供全部数据，只读 |
-| 2D 主图 | `src/scene2d.js` | `render2d(bodies, options)`、`onBodyClick(callback)`、`setScaleMode(mode)`、`setTimeScale(rate)` | 画主图、抛点击事件、响应调控 |
+| 数据模块 | `src/data/bodies.js` | 全局变量 `SOLAR_BODIES`（天体数组）、`GUIDE_STATIONS`（引导站数组）、`SOLAR_CONFIG`（档位配置） | 提供全部数据，只读 |
+| 页面状态 | `src/states.js` | `pageState.current()`；状态写到 `<body data-page-state>` | 管整页四态：loading / success / empty / error；各区读 `<body>` 的属性决定自己长什么样 |
+| 2D 主图 | `src/scene2d.js` | `render2d(bodies, options)`、`onBodyClick(callback)`、**`selectBody(bodyId)`**、`setScaleMode(mode)`、`setTimeScale(rate)` | 画主图、抛点击事件、打开某一颗天体的资料卡与 3D、响应调控 |
+| 天体目录 | `src/catalog.js` | `catalogBodies()`、`renderCatalog(bodies)`、`fillCatalog()` | 用本地数据渲染卡片列表；点卡片时转交给 `selectBody(id)`，**不自己去调资料卡和 3D** |
 | 3D 聚焦 | `src/focus3d.js` | `openFocus(bodyId)`、`closeFocus()` | 按需加载 Three.js、渲染特写 |
 | 调控区 | `src/controls.js` | `initControls({ onTimeScale, onScaleMode, onCompare })` | 采集用户操作并回调 |
 | 引导主线 | `src/guide.js` | `startGuide()`、`nextStation()`、`gotoStation(index)`、`onStationChange(callback)` | 推进 12 站 |

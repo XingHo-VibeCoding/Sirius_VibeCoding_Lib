@@ -7,11 +7,22 @@
   <meta name="description" content="用图形、动画和中文引导词，帮你一点点看懂太阳系。">
   <link rel="stylesheet" href="styles/main.css">
 </head>
-<body>
+<body data-page-state="loading">
+
+  <!-- 过渡屏（Day 8 新增）——网页名 + 网页介绍 + 「加载中」状态三合一。
+       它同时承担四种状态里的 loading：等主视图真的画出天体了才退场。
+       显隐由 src/states.js 控制；styles/main.css 里另有一条
+       不依赖 JS 的 4 秒兜底，保证它绝不会永远挡着页面。 -->
+  <div id="intro-overlay" class="intro-overlay" role="status" aria-live="polite">
+    <div class="intro-sun" aria-hidden="true"></div>
+    <p class="intro-name">重走太阳系</p>
+    <p class="intro-tagline">当文字科普太晦涩时，用图形和引导，一点点看懂太阳系。</p>
+    <p class="intro-loading"><span class="intro-dot" aria-hidden="true"></span>正在准备太阳系…</p>
+  </div>
 
   <header class="page-header">
     <h1>重走太阳系</h1>
-    <p class="subtitle">Day 7 · 效果预览（点一颗行星，看它的资料）</p>
+    <p class="subtitle">用图形和引导，一点点看懂太阳系 · Day 8 试做中</p>
   </header>
 
   <main id="scene-wrap">
@@ -20,6 +31,22 @@
       <title id="scene-title">太阳系 2D 轨道图</title>
       <desc id="scene-desc">太阳位于中心，行星沿各自的椭圆轨道绕太阳运行。</desc>
     </svg>
+
+    <!-- 主图区的状态层（Day 8 第 4 步）。
+         数据取不到（error）或数据是空的（empty）时，主图上会是空白 ——
+         空白最让人困惑，所以要有一条说明这里发生了什么。
+         显隐完全由 CSS 读 <body data-page-state> 决定，
+         脚本不用管它；这样"状态"和"样子"是分开的。
+
+         两种状态各说各的话：
+           error —— 出错了，给一个「重新加载」按钮（用户有可做的事）
+           empty —— 本来就没有内容，给按钮也没用，只说明情况 -->
+    <div id="scene-state" class="scene-state">
+      <p class="scene-state-text" data-when="empty">暂时没有可显示的天体资料，主图是空的。</p>
+      <p class="scene-state-text" data-when="error">太阳系主图没能加载成功。</p>
+      <button id="scene-state-retry" class="scene-state-retry" type="button"
+              data-when="error">重新加载</button>
+    </div>
   </main>
 
   <!-- 调控区（PRD F3「教学机关」）。
@@ -48,6 +75,31 @@
        一眼看出「水星 88 天」和「海王星 59800 天」差多少。
        内容由 src/controls.js 生成。 -->
   <div id="compare-panel" class="compare-panel" hidden></div>
+
+  <!-- 天体目录（Day 8 第 3 步新增）。
+       主图上的行星只是几个小圆点，新手未必知道该点哪里；
+       这里把 11 个天体列成卡片，点一张等于在图上点了它一次。
+       卡片由 src/catalog.js 生成；data-state 决定这一区当前显示什么：
+         loading → 转圈 + 「正在读取天体资料…」
+         success → 卡片列表
+         empty   → 一句"没有资料"
+         error   → 一句"没读取成功"
+       四种状态的具体样子写在 styles/main.css 里。 -->
+  <section id="catalog" class="catalog" aria-labelledby="catalog-title">
+    <div class="catalog-head">
+      <h2 id="catalog-title" class="catalog-title">天体目录</h2>
+      <span id="catalog-count" class="catalog-count"></span>
+    </div>
+    <p class="catalog-sub">点一张卡片，就等于在主图上点了它一次。</p>
+
+    <div id="catalog-body" class="catalog-body" data-state="loading"
+         aria-live="polite" aria-busy="true">
+      <ul id="catalog-list" class="catalog-list"></ul>
+      <p id="catalog-msg" class="catalog-msg">
+        <span class="catalog-wait-dot" aria-hidden="true"></span><span id="catalog-msg-text">正在读取天体资料…</span>
+      </p>
+    </div>
+  </section>
 
   <footer class="page-footer">
     <p>数据来源：NASA Planetary Fact Sheet ／ NASA Sun Fact Sheet（逐条标注见 <code>src/data/bodies.js</code>）</p>
@@ -78,7 +130,11 @@
 
   <script src="src/data/bodies.js"></script>
   <script src="src/fallback.js"></script>
+  <!-- states.js 排在主图脚本之前：就算后面哪一个脚本报错，
+       状态机也已经在跑，过渡屏仍能按时让路（PRD 5.3 不卡死）。 -->
+  <script src="src/states.js"></script>
   <script src="src/scene2d.js"></script>
+  <script src="src/catalog.js"></script>
   <script src="src/controls.js"></script>
   <script src="src/focus3d.js"></script>
 

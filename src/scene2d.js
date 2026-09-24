@@ -2,7 +2,8 @@
  * src/scene2d.js —— 2D 主图（用 SVG 画）＋ 点击与资料卡
  * ------------------------------------------------------------
  * 职责（TECH_DESIGN.md 第 4 节）：画轨道与天体、处理点击与缩放平移。
- * 对外接口：render2d(bodies, options)、onBodyClick(callback)
+ * 对外接口：render2d(bodies, options)、onBodyClick(callback)、selectBody(id)
+ *           （前两个见 Day 5 初稿，selectBody 见下面 Day 8 第 3 步的说明）
  *
  * Day 7 第 2 步：数据补齐到 11 个天体后，【尺度映射必须重做】，
  * 原因见下面 orbitRadiusPx 的说明。
@@ -14,6 +15,13 @@
  *         TECH_DESIGN 6-2 / 6-3（字段缺失显示"资料待补"、来源未确认要标出）
  *
  * 尚未实现的（留给后续步骤）：缩放平移、调控区（controls.js）、3D 聚焦（focus3d.js）。
+ *
+ * Day 8 第 3 步（本步新增）：对外多开一个出口 selectBody(id)。
+ *   起因：本步新增的「天体目录」（src/catalog.js）是一列卡片，
+ *         点卡片要等于在图上点了它一次。目录不该自己去调资料卡和 3D，
+ *         所以把「点击一颗天体的完整后果」抽成 activateBody()，
+ *         图上点击与目录点击共用同一条路径。
+ *   本步只增加了出口，没有改动任何绘图与动画逻辑。
  * ============================================================ */
 
 (function () {
@@ -68,6 +76,12 @@
   let elapsedDays = 0;        // 累计过去了多少天
   let lastFrameAt = 0;
   let frameToken = 0;         // 让被替换掉的旧动画循环自己退出
+
+  /* 最近一次画进主图的天体数组。
+     为什么要存一份：render2d(bodies) 的 bodies 只是入参，函数跑完就没有了；
+     而 Day 8 第 3 步新增的 selectBody(id)（天体目录点卡片时调用）需要
+     按 id 反查天体对象，所以把最近一次的入参留在这里。 */
+  let currentBodies = null;
 
   /* 椭圆轨道的极坐标标准式（焦点在太阳，即原点）：
      给定半长轴 a、偏心率 e，返回真近点角 nu 处「到太阳的距离」。
@@ -433,6 +447,57 @@
     clickHandler = typeof callback === 'function' ? callback : null;
   }
 
+  /* ---------- 「打开某颗天体」（Day 8 第 3 步新增）----------
+     场景：天体目录（src/catalog.js）是一列卡片，点卡片要等于在图上点了它一次。
+     如果让 catalog.js 自己去调资料卡和 3D，就等于绕过主图，两处的行为早晚会走偏。
+     所以统一走这里：图上的点击和目录的点击，最终调用的是同一个 activateBody()。 */
+
+  function findBody(id) {
+    const list = currentBodies || window.SOLAR_BODIES || [];
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].id === id) {
+        return list[i];
+      }
+    }
+    return null;
+  }
+
+  /* 点击一颗天体的完整后果：弹资料卡 → 打开 3D 特写 → 抛出点击事件。
+     抽成函数是为了让「图上点」和「目录点」共用同一条路径。 */
+  function activateBody(found) {
+    if (!found) {
+      return;
+    }
+
+    renderBodyCard(found);
+
+    /* 打开 3D 特写（TECH_DESIGN 第 4 节的接口名 openFocus）。
+       用「存在性判断」而不是直接调：这样 3D 模块没加载、加载失败、
+       或被人用 ENABLE_3D 关掉时，资料卡照常显示，页面不会整块坏掉
+       —— 对应 TECH_DESIGN 第 6 节「任何一块坏掉都不能白屏」。 */
+    if (typeof window.openFocus === 'function') {
+      window.openFocus(found.id);
+    }
+
+    // 对外抛出点击事件（TECH_DESIGN 第 4 节接口约定）。
+    if (clickHandler) {
+      clickHandler(found);
+    }
+  }
+
+  /* 对外接口：按 id 打开一颗天体，等同于在图上点了它。
+     返回 true 表示找到了并已打开；false 表示这个 id 不存在。
+     刻意不抛异常：调用方（目录）拿到 false 只需要忽略这一次点击，
+     不该因为一个查不到的 id 让整个目录坏掉。 */
+  function selectBody(bodyId) {
+    const found = findBody(bodyId);
+    if (!found) {
+      return false;
+    }
+    activateBody(found);
+    return true;
+  }
+
   /* ---------- 调控接口（TECH_DESIGN 第 4 节）----------
      由 src/controls.js 调用。 */
 
@@ -464,6 +529,9 @@
     if (!svg || !bodies) {
       return;
     }
+
+    // 留一份给 selectBody(id) 反查用（见文件上方 currentBodies 的说明）
+    currentBodies = bodies;
 
     // 坐标原点放在画布中心，太阳就在 (0,0)
     svg.setAttribute('viewBox', '-450 -450 900 900');
@@ -641,26 +709,15 @@
         return;
       }
 
-      renderBodyCard(found);
-
-      /* 打开 3D 特写（TECH_DESIGN 第 4 节的接口名 openFocus）。
-         用「存在性判断」而不是直接调：这样 3D 模块没加载、加载失败、
-         或被人用 ENABLE_3D 关掉时，资料卡照常显示，页面不会整块坏掉
-         —— 对应 TECH_DESIGN 第 6 节「任何一块坏掉都不能白屏」。 */
-      if (typeof window.openFocus === 'function') {
-        window.openFocus(found.id);
-      }
-
-      // 对外抛出点击事件（TECH_DESIGN 第 4 节接口约定）。
-      if (clickHandler) {
-        clickHandler(found);
-      }
+      // 与目录点卡片走的是同一条路径（见上方 activateBody 的说明）
+      activateBody(found);
     });
   }
 
   /* 对外接口（TECH_DESIGN 第 4 节） */
   window.render2d = render2d;
   window.onBodyClick = onBodyClick;
+  window.selectBody = selectBody;
   window.setTimeScale = setTimeScale;
   window.setScaleMode = setScaleMode;
 
