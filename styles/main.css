@@ -137,7 +137,8 @@ body[data-page-state="error"] #control-bar {
   padding: 6px 16px 20px;
   font-size: 12px;
   line-height: 1.7;
-  color: #6b7691;
+  /* Day 9：原 #6b7691 实测最低 3.88:1，低于 WCAG AA 正文门槛 4.5 */
+  color: #8892ad;
   text-align: center;
 }
 
@@ -385,6 +386,10 @@ body[data-page-state="error"] #control-bar {
 }
 
 .btn {
+  /* display 改成 inline-flex 只为让文字在变高后仍然居中（宽高都由外面决定，布局不变） */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 5px 11px;
   font-family: inherit;
   font-size: 12px;
@@ -399,6 +404,17 @@ body[data-page-state="error"] #control-bar {
 .btn:hover {
   color: #e8ecf5;
   background: rgba(255, 255, 255, 0.11);
+}
+
+/* Day 9：这块原先只有 :hover —— 键盘 Tab 过来时只剩下浏览器默认的
+   1px 近黑细环（实测 outline: auto 1px rgb(16,16,16)），压在这页的深蓝底上
+   等于看不见，键盘用户根本不知道焦点在哪。
+   用 :focus-visible 而不是 :focus：鼠标点击不会冒出光圈，只有键盘导航才出现。
+   outline-offset 让环离开按钮边界，这样在选中态的按钮（.btn.on，
+   背景本来就是主色 #7fa8e0）上也分得清。 */
+.btn:focus-visible {
+  outline: 2px solid #9fc0f0;
+  outline-offset: 2px;
 }
 
 .btn.on {
@@ -701,7 +717,8 @@ body[data-page-state="error"] #control-bar {
   margin: 22px 0 0;
   font-size: 12px;
   letter-spacing: 1px;
-  color: #6b7691;
+  /* Day 9：同一个 #6b7691，过渡屏那层渐变偏亮，算下来只有约 3.5:1 */
+  color: #8892ad;
 }
 
 .intro-dot {
@@ -767,7 +784,8 @@ body[data-page-state="error"] #control-bar {
 
 .catalog-count {
   font-size: 11.5px;
-  color: #6b7691;
+  /* Day 9：原 #6b7691 在卡片最亮处只有 3.88:1，与 .cat-name-en 统一 */
+  color: #8892ad;
 }
 
 .catalog-sub {
@@ -843,7 +861,10 @@ body[data-page-state="error"] #control-bar {
 .cat-name-en {
   font-size: 10.5px;
   line-height: 1.3;
-  color: #717d99;
+  /* Day 9：原来用 #717d99，手机实测最低 4.07:1 —— 卡片区的渐变背景是整页最亮的地方，
+     它把这行英文名压到了 4.5 门槛以下。#8892ad 实测 5.4:1，留了余量
+     （背景是渐变的，换个窗口宽度数值会浮动）。 */
+  color: #8892ad;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -951,6 +972,11 @@ body[data-page-state="error"] #control-bar {
   }
 
   .btn {
+    /* Day 9：触控目标。实测手机上是 43×27 —— 高度只有 27px，手指点在手机上很容易点偏。
+       44 这个数是移动端通行标准（Apple HIG 44pt / Material 48dp），
+       规则原文也把这条标成 Mobile-only —— 所以桌面那版尺寸不动，只在这里垫高。 */
+    min-height: 44px;
+    min-width: 44px;
     padding: 5px 9px;
     font-size: 11.5px;
   }
