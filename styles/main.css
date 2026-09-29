@@ -776,7 +776,11 @@ body[data-page-state="error"] #control-bar {
 
 .catalog-title {
   margin: 0;
-  font-size: 14px;
+  /* Day 10：原 14px，与卡片里的中文名（当时 13.5px）只差 0.5px ——
+     区块标题压不住它管辖的内容，两者看着平级、看不出主次。
+     提到 19px 后与卡片名（13px）差 6px，层级一眼可辨；
+     仍低于页面主标题 h1 的 20px，不会反过来抢主标题的戏。 */
+  font-size: 19px;
   font-weight: 500;
   letter-spacing: 1px;
   color: #c3cde2;
@@ -853,7 +857,12 @@ body[data-page-state="error"] #control-bar {
 }
 
 .cat-name-zh {
-  font-size: 13.5px;
+  /* Day 10：原 13.5px 是个"随手值"。收到 13px 是为了让标题（19px）与卡片名
+     拉开 6px 的层级差 —— 光把标题调大、卡片不动也能拉开，但卡片名留在
+     13.5 这种非整数值上，等于把一个散点永久留在字号阶梯里。
+     另外这行**不参与对比度判定**：它用的是 #e8ecf5（实测 15:1 以上），
+     收小 0.5px 不影响可读性。 */
+  font-size: 13px;
   line-height: 1.35;
   color: #e8ecf5;
 }
@@ -1054,7 +1063,9 @@ body[data-page-state="error"] #control-bar {
   }
 
   .cat-name-zh {
-    font-size: 12.5px;
+    /* Day 10：原 12.5px，与上面桌面版一起收到整数值，理由见桌面那处的注释。
+       手机卡片宽度只有桌面的八成，收 0.5px 不会让中文名换行。 */
+    font-size: 12px;
   }
 
   .cat-name-en {
