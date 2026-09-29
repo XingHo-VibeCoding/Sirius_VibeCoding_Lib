@@ -424,6 +424,27 @@ body[data-page-state="error"] #control-bar {
 }
 
 /* ---------- 教学对比面板 ---------- */
+/* Day 11：面板的展开／收起改成有过渡的滑入淡入。
+ *
+ * 为什么外面要套一层 .compare-wrap：
+ *   原先面板自己带 hidden 属性，而 hidden 走的是 display:none ——
+ *   display 是"要么在要么不在"，**没法做过渡**（浏览器不给中间态）。
+ *   所以换成常见的两段式：外层的显隐由脚本控制（display 有/无），
+ *   内层（真正的面板）负责透明度与位移的过渡。
+ *
+ * 时间尺度上这是「确认态」而不是「结果态」：
+ *   0.25 秒足够被眼睛看见"我点到了"，又不至于让人等。
+ *   位移只有 8px —— 少到不会引起布局跳动，多到能感知到方向（往下展开）。 */
+.compare-wrap {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.compare-wrap[hidden] {
+  display: none;
+}
+
 .compare-panel {
   width: 100%;
   max-width: 640px;
@@ -432,11 +453,22 @@ body[data-page-state="error"] #control-bar {
   background: rgba(17, 24, 44, 0.92);
   border: 1px solid rgba(140, 165, 220, 0.22);
   border-radius: 12px;
+  /* 起始态 = 收起态：往上 8px、透明。展开时这两个值归零。 */
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity .25s ease, transform .25s ease;
+  /* transition 只管上面两条，别的属性一律不参与过渡 */
+  will-change: opacity, transform;
 }
 
-.compare-panel[hidden] {
-  display: none;
+/* 展开态由脚本给外层加 .is-open 触发 */
+.compare-wrap.is-open .compare-panel {
+  opacity: 1;
+  transform: translateY(0);
 }
+
+/* 收起的过渡得靠这个：脚本先摘掉 .is-open，动画走完再给外层加 hidden。
+   所以 0.25 秒这个数字在 CSS 和 JS 里各出现一次 —— 改时间要同时改两处。 */
 
 .compare-title {
   margin: 0 0 4px;
@@ -753,6 +785,15 @@ body[data-page-state="error"] #control-bar {
 
   .catalog-wait-dot {
     animation: none;
+  }
+
+  /* Day 11：教学对比面板的滑入也不是所有人都想看 ——
+     系统里开了"减少动态效果"（前庭功能敏感的用户常开）时直接省略位移，
+     面板仍然是"立刻出现"，只是不再滑动。
+     注意：这里只去掉 transition，**不改变任何终态值** ——
+     opacity/transform 的展开态仍由 .is-open 给到，所以开关功能完全不受影响。 */
+  .compare-panel {
+    transition: none;
   }
 }
 

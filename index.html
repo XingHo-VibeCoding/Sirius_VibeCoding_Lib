@@ -73,8 +73,15 @@
 
   <!-- 教学对比面板：把 8 颗行星的公转周期并排画成条，
        一眼看出「水星 88 天」和「海王星 59800 天」差多少。
-       内容由 src/controls.js 生成。 -->
-  <div id="compare-panel" class="compare-panel" hidden></div>
+       内容由 src/controls.js 生成。
+
+       Day 11：外面套了一层 .compare-wrap —— 因为 hidden 走 display:none，
+       而 display 没法做过渡。外层的显隐归脚本管，内层的透明度/位移归 CSS 管，
+       这样面板打开时才能有"滑入 + 淡入"的过渡（收起时相反）。
+       外层的 hidden 属性仍然保留：脚本不可用时面板默认不挡住页面。 -->
+  <div id="compare-wrap" class="compare-wrap" hidden>
+    <div id="compare-panel" class="compare-panel"></div>
+  </div>
 
   <!-- 天体目录（Day 8 第 3 步新增）。
        主图上的行星只是几个小圆点，新手未必知道该点哪里；

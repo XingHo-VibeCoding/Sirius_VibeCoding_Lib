@@ -111,6 +111,11 @@
    * 水星周期 88 天、海王星 59800 天，相差 680 倍 ——
    * 速度调到能看清水星，海王星就几乎不动；调到海王星明显在动，水星就糊成一片。
    * 所以改用「把周期本身画成条」来对比：一眼就能看出差多少，不依赖动画速度。 */
+
+  /* 展开／收起的过渡时长。⚠️ 这个数字在 styles/main.css 的 .compare-panel
+     里也写了一次（transition: .25s），**改时要同时改两处**。
+     它只用来决定"收起动画走完之后再藏起来"这个时点。 */
+  const PANEL_FADE_MS = 250;
   function fillComparePanel(panel) {
     const bodies = (window.SOLAR_BODIES || []).filter(function (b) {
       return b.type === 'planet' && typeof b.orbitalPeriodDays === 'number';
@@ -181,8 +186,9 @@
 
   function buildCompare(onCompare) {
     const btn = document.getElementById('ctrl-compare');
+    const wrap = document.getElementById('compare-wrap');
     const panel = document.getElementById('compare-panel');
-    if (!btn || !panel) {
+    if (!btn || !wrap || !panel) {
       return;
     }
 
@@ -190,9 +196,38 @@
       fillComparePanel(panel);
     }
 
+    /* 收起动画走完之后再真正藏起来。放在模块作用域，
+       这样连点两次不会留下一个"还没到点就把新面板藏了"的旧定时器。 */
+    let hideTimer = 0;
+
     btn.addEventListener('click', function () {
-      const willOpen = panel.hidden;
-      panel.hidden = !willOpen;
+      const willOpen = !wrap.classList.contains('is-open');
+
+      clearTimeout(hideTimer);
+
+      if (willOpen) {
+        /* 展开：先撤 hidden 让面板进入渲染，再加 .is-open 触发过渡。
+           必须分两帧 —— 同一帧里"从 display:none 变成 display:flex"
+           同时又要应用新的 opacity/transform，浏览器会直接跳到终态、
+           整段过渡被吞掉。用 requestAnimationFrame 隔开就稳了。
+           （若浏览器没有 rAF，退回 setTimeout 0，效果一样。） */
+        wrap.hidden = false;
+        const raf = window.requestAnimationFrame
+          ? window.requestAnimationFrame
+          : function (fn) { setTimeout(fn, 0); };
+        raf(function () {
+          wrap.classList.add('is-open');
+        });
+      } else {
+        /* 收起：先摘 .is-open 让过渡开始跑，等它走完再加 hidden。
+           反过来做的话（先 hidden）面板会瞬间消失，过渡同样看不到。
+           时长要比 CSS 里那条多一点余量，免得卡在最后一帧上。 */
+        wrap.classList.remove('is-open');
+        hideTimer = setTimeout(function () {
+          wrap.hidden = true;
+        }, PANEL_FADE_MS + 40);
+      }
+
       btn.setAttribute('aria-expanded', String(willOpen));
       btn.classList.toggle('on', willOpen);
       onCompare(willOpen);
