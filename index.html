@@ -95,15 +95,40 @@
   <section id="catalog" class="catalog" aria-labelledby="catalog-title">
     <div class="catalog-head">
       <h2 id="catalog-title" class="catalog-title">天体目录</h2>
-      <span id="catalog-count" class="catalog-count"></span>
+      <!-- role="status"（Day 12）：计数一变（共 11 个 → 共 8 个）就让读屏念出来。
+           筛出几个是筛选交互的核心信息，看不见它的人也应该知道。 -->
+      <span id="catalog-count" class="catalog-count" role="status"></span>
     </div>
     <p class="catalog-sub">点一张卡片，就等于在主图上点了它一次。</p>
+
+    <!-- 筛选条（Day 12）。
+         默认 hidden：数据还没读到时留着它没有意义（类型按钮要按真实数据生成），
+         而且"加载中/出错"的时候也不该让用户去筛一堆还不存在的东西。
+         src/filter.js 拿到数据（catalog:ready 事件）后才把 hidden 撤掉。
+         按钮由脚本按数据里**真实出现过**的类型生成 —— 以后加天体，
+         类型会自动多出来，不会漏。 -->
+    <div id="catalog-filter" class="catalog-filter" hidden>
+      <div class="filter-group">
+        <span id="filter-type-label" class="filter-label">类型</span>
+        <div id="filter-types" class="filter-types" role="group" aria-labelledby="filter-type-label"></div>
+      </div>
+      <div class="filter-group">
+        <label class="filter-label" for="filter-search">搜索</label>
+        <input id="filter-search" class="filter-input" type="search"
+               placeholder="名字，如「木」" autocomplete="off">
+      </div>
+    </div>
 
     <div id="catalog-body" class="catalog-body" data-state="loading"
          aria-live="polite" aria-busy="true">
       <ul id="catalog-list" class="catalog-list"></ul>
       <p id="catalog-msg" class="catalog-msg">
         <span class="catalog-wait-dot" aria-hidden="true"></span><span id="catalog-msg-text">正在读取天体资料…</span>
+        <!-- 「筛出 0 个」时的出口。只在 data-state="no-match" 时露出来（CSS 管）。
+             为什么这个状态给按钮、而"数据源本身为空"（empty）不给 ——
+             判据还是 Day 8 那条：用户做点什么有没有用。
+             点一下清空就能把东西找回来，所以给；数据源本来就空的话给了也白给。 -->
+        <button id="catalog-clear" class="catalog-clear" type="button">清空筛选</button>
       </p>
     </div>
   </section>
@@ -142,6 +167,9 @@
   <script src="src/states.js"></script>
   <script src="src/scene2d.js"></script>
   <script src="src/catalog.js"></script>
+  <!-- filter.js 排在 catalog.js 之后：它靠 catalog.js 发出的
+       「目录铺好了」事件拿数据，必须保证监听器先于事件注册。 -->
+  <script src="src/filter.js"></script>
   <script src="src/controls.js"></script>
   <script src="src/focus3d.js"></script>
 

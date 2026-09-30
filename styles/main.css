@@ -970,6 +970,114 @@ body[data-page-state="error"] #control-bar {
   display: none;
 }
 
+/* ============================================================
+ * 天体目录筛选（Day 12）
+ * 依据：.workbuddy/skills/catalog-filter-guard/SKILL.md 的 6 条检查清单
+ *
+ * 三个复用，都是为了少造新东西：
+ *   按钮     → 直接穿调控区的 .btn（它已经过 Day 9 的对比度与触控检查）
+ *   选中态   → .btn[aria-pressed="true"]，和 .btn.on 同一套配色，
+ *              只是改由 aria-pressed 驱动（一个属性同时管视觉和读屏）
+ *   无结果   → 复用 Day 8 的 data-state 机制，只多一个取值 no-match
+ * ============================================================ */
+.catalog-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 0 0 10px;
+}
+
+.catalog-filter[hidden] {
+  display: none;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-label {
+  font-size: 12px;
+  /* Day 9 修对比度时定下的色值，直接沿用，不新引一个散点 */
+  color: #8892ad;
+  white-space: nowrap;
+}
+
+.filter-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* 选中态：和 .btn.on 同色，改由 aria-pressed 驱动 */
+.btn[aria-pressed="true"] {
+  color: #0e1526;
+  background: #7fa8e0;
+  border-color: #7fa8e0;
+}
+
+.filter-input {
+  width: 150px;
+  padding: 5px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  color: #e8ecf5;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 6px;
+}
+
+.filter-input::placeholder {
+  color: #8892ad;
+}
+
+.filter-input:focus-visible {
+  outline: 2px solid #9fc0f0;
+  outline-offset: 2px;
+}
+
+/* 藏掉浏览器给 type="search" 自带的那个 × ——
+   页面上已经有「清空筛选」按钮，留两个清空入口会让行为显得不一致。 */
+.filter-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* 筛出 0 个：提示语用中性色（不是报错的红色 —— 这不是错误，只是没命中），
+   并露出「清空筛选」这个出口。 */
+.catalog-body[data-state="no-match"] .catalog-msg {
+  color: #a8b4cc;
+}
+
+.catalog-clear {
+  display: none;
+  padding: 4px 11px;
+  font-family: inherit;
+  font-size: 11.5px;
+  color: #cfe0f7;
+  background: rgba(127, 168, 224, 0.18);
+  border: 1px solid rgba(127, 168, 224, 0.45);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.catalog-body[data-state="no-match"] .catalog-clear {
+  display: inline-flex;
+  align-items: center;
+}
+
+.catalog-clear:hover {
+  color: #e8ecf5;
+  background: rgba(127, 168, 224, 0.3);
+}
+
+.catalog-clear:focus-visible {
+  outline: 2px solid #9fc0f0;
+  outline-offset: 2px;
+}
+
 /* ---------- 手机端 ---------- */
 @media (max-width: 480px) {
   .page-header {
@@ -1111,5 +1219,23 @@ body[data-page-state="error"] #control-bar {
 
   .cat-name-en {
     font-size: 10px;
+  }
+
+  /* 筛选条（Day 12）：手机上按钮会换行，间距收紧一点、输入框收窄，
+     免得「搜索」两个字被挤到第三行去。
+     筛选按钮本身不用管 —— 它们穿的是 .btn，Day 9 已经给手机端补过 44×44。 */
+  .catalog-filter {
+    gap: 6px 10px;
+  }
+
+  .filter-input {
+    width: 118px;
+  }
+
+  /* 「清空筛选」是手机上唯一能把东西找回来的出口，触控目标补到 44 高。
+     （桌面上那个小尺寸是有意保留的：鼠标点击不需要 44×44。） */
+  .catalog-clear {
+    min-height: 44px;
+    padding: 4px 14px;
   }
 }

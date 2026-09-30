@@ -15,6 +15,11 @@
  *   catalogBodies()      读数据，返回 Promise
  *   renderCatalog(bodies) 把数据画成卡片
  *   fillCatalog()         把上面两步串起来（= 真正的入口）
+ *
+ * 对外事件（Day 12 新增）：
+ *   catalog:ready —— 目录第一次铺好后发出，detail 里带着 { bodies }。
+ *   筛选条（src/filter.js）靠它拿数据，这样"目录上显示的"和
+ *   "筛选拿到的"必然是同一份，也不用把数据读两遍。
  * ============================================================ */
 
 (function () {
@@ -188,6 +193,16 @@
         }
 
         setState('success');
+
+        /* 通知别的模块：目录已经铺好了（Day 12）。
+           筛选条（src/filter.js）靠这个事件拿到数据才开始工作 ——
+           数据没到位之前它一直藏着，免得用户去筛一堆还不存在的东西。
+           用事件而不是让 filter.js 自己再读一遍：数据只读一次，
+           两边拿到的必然是同一份。 */
+        document.dispatchEvent(new CustomEvent('catalog:ready', {
+          detail: { bodies: list }
+        }));
+
         return list;
       },
       function (err) {
