@@ -47,12 +47,17 @@
 
   /* 除"成功"以外三种状态各自要说的话。
      文案面向零基础：不出现"请求失败""数据异常"这类词，直接说人该做什么。
-     error 那句特意指向主图区那颗按钮 —— 第 4 步之后页面上真的有一个
-     「重新加载」可以点，就不该再叫用户自己去按浏览器刷新。 */
+     error 那句指向同一块区域里的「重新加载」（#catalog-retry），
+     而不是让用户自己去按浏览器刷新 —— 页面上能解决的事，就别把人推到浏览器上。
+
+     Day 13 改了一处措辞：原文案是「点**上面的**「重新加载」」，
+     因为当时主图和目录在同一页、那个按钮就在目录上方。
+     Day 13 拆成两个视图后那个按钮在「探索」视图里，图鉴上根本看不到它，
+     "上面的"就成了指不到目标的指路牌 —— 所以去掉方位词，改指自家这颗。 */
   const MESSAGES = {
     loading: '正在读取天体资料…',
     empty: '暂时没有可显示的天体资料。',
-    error: '天体资料没能读取成功，点上面的「重新加载」再试一次。'
+    error: '天体资料没能读取成功，点「重新加载」再试一次。'
   };
 
   function h(tag, cls, text) {
@@ -278,6 +283,18 @@
     if (list) {
       list.addEventListener('click', onListClick);
     }
+
+    /* 「重新加载」（Day 13 新增）—— 图鉴自己的重试出口。
+       和主图区那颗（src/states.js 里绑的 #scene-state-retry）用同一个办法：
+       整页重新加载。为什么不是"就地再读一次数据"——见 states.js 里那段说明，
+       典型原因是数据文件本身没下载成功，在内存里怎么读都是空的。 */
+    const retry = document.getElementById('catalog-retry');
+    if (retry) {
+      retry.addEventListener('click', function () {
+        window.location.reload();
+      });
+    }
+
     whenIntroDone(fillCatalog);
   });
 })();

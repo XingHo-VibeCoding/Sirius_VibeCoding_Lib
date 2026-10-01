@@ -429,15 +429,13 @@
     link.title = body.source || '';
     src.appendChild(link);
 
-    card.hidden = false;
+    /* Day 13：这里原本是 card.hidden = false（把浮层露出来）。
+       现在资料卡是详情视图里的一块内容，显隐由视图路由管，
+       不该再由它自己控制 —— 同一件事两处管，早晚会打架。 */
   }
 
-  function hideBodyCard() {
-    const card = document.getElementById('body-card');
-    if (card) {
-      card.hidden = true;
-    }
-  }
+  /* Day 13：原来的 hideBodyCard() 已删除 —— 资料卡不再是浮层，
+     没有"关闭"这个动作；退出详情视图走路由的「← 返回」（src/router.js）。 */
 
   /* 对外接口：注册点击回调（TECH_DESIGN 第 4 节）。
      后续 3D 聚焦通过它接上，不需要改这个文件。 */
@@ -462,26 +460,31 @@
     return null;
   }
 
-  /* 点击一颗天体的完整后果：弹资料卡 → 打开 3D 特写 → 抛出点击事件。
-     抽成函数是为了让「图上点」和「目录点」共用同一条路径。 */
+  /* 点击一颗天体的完整后果（Day 13 起：交给路由）。
+     Day 7–12 这里是"弹资料卡浮层 + 开 3D 特写"；Day 13 把资料拆成独立视图后，
+     这里只负责**把地址改过去**（`#/body/:id`）——
+     内容由详情视图自己画，3D 由详情页里的按钮打开。
+
+     为什么不在点击时就地渲染详情：
+     那样"图上点"和"直接输地址"就会走两条路径，
+     早晚会出现"点进去有内容、刷新一下却空白"。
+     统一交给路由，全站只有一条路。 */
   function activateBody(found) {
     if (!found) {
       return;
     }
 
-    renderBodyCard(found);
-
-    /* 打开 3D 特写（TECH_DESIGN 第 4 节的接口名 openFocus）。
-       用「存在性判断」而不是直接调：这样 3D 模块没加载、加载失败、
-       或被人用 ENABLE_3D 关掉时，资料卡照常显示，页面不会整块坏掉
-       —— 对应 TECH_DESIGN 第 6 节「任何一块坏掉都不能白屏」。 */
-    if (typeof window.openFocus === 'function') {
-      window.openFocus(found.id);
-    }
-
-    // 对外抛出点击事件（TECH_DESIGN 第 4 节接口约定）。
+    // 对外抛出点击事件（TECH_DESIGN 第 4 节接口约定），保持向后兼容
     if (clickHandler) {
       clickHandler(found);
+    }
+
+    /* 交给路由。用「存在性判断」而不是直接调：router.js 万一没加载出来，
+       点击也不该变成"完全没反应" —— 至少把地址改过去。 */
+    if (window.router && typeof window.router.go === 'function') {
+      window.router.go('body', found.id);
+    } else {
+      window.location.hash = '#/body/' + encodeURIComponent(found.id);
     }
   }
 
@@ -697,9 +700,9 @@
         ? target.closest('[data-body-id],[data-hit-for]')
         : null;
 
+      /* 点到空白处。Day 13 起资料卡不再是浮层，没有东西需要"收起"，
+         所以这里什么都不做（原来的行为是 hideBodyCard()）。 */
       if (!node) {
-        // 点到空白处 → 收起资料卡
-        hideBodyCard();
         return;
       }
 
@@ -717,6 +720,9 @@
   /* 对外接口（TECH_DESIGN 第 4 节） */
   window.render2d = render2d;
   window.onBodyClick = onBodyClick;
+  /* Day 13：详情视图（src/router.js）复用这同一个渲染函数 ——
+     资料卡的呈现方式永远只有一处定义，不会出现"浮层和详情页长得不一样"。 */
+  window.renderBodyCard = renderBodyCard;
   window.selectBody = selectBody;
   window.setTimeScale = setTimeScale;
   window.setScaleMode = setScaleMode;
@@ -736,16 +742,7 @@
       render2d(window.SOLAR_BODIES, { mountId: 'solar-scene' });
     }
 
-    const closeBtn = document.getElementById('card-close');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', hideBodyCard);
-    }
-
-    // 按 Esc 也能关掉资料卡（键盘操作时更顺手）
-    document.addEventListener('keydown', function (ev) {
-      if (ev.key === 'Escape') {
-        hideBodyCard();
-      }
-    });
+    /* Day 13：资料卡不再是浮层，所以原来的「× 关闭」按钮和 Esc 关闭都去掉了 ——
+       详情视图改用页面里的「← 返回」退出（见 src/router.js 的 goBack()）。 */
   });
 })();

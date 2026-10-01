@@ -7,7 +7,10 @@
   <meta name="description" content="用图形、动画和中文引导词，帮你一点点看懂太阳系。">
   <link rel="stylesheet" href="styles/main.css">
 </head>
-<body data-page-state="loading">
+<!-- data-view（Day 13）：当前在哪个视图。脚本只写这个属性，谁显示谁隐藏由 CSS 读它决定。
+     默认 explore —— 地址栏为空或认不出时也落到这里，绝不出现"三个视图都不显示"的白屏。
+     详见 TECH_DESIGN.md 第 12 节。 -->
+<body data-page-state="loading" data-view="explore">
 
   <!-- 过渡屏（Day 8 新增）——网页名 + 网页介绍 + 「加载中」状态三合一。
        它同时承担四种状态里的 loading：等主视图真的画出天体了才退场。
@@ -22,122 +25,201 @@
 
   <header class="page-header">
     <h1>重走太阳系</h1>
-    <p class="subtitle">用图形和引导，一点点看懂太阳系 · Day 8 试做中</p>
+    <p class="subtitle">用图形和引导，一点点看懂太阳系 · Day 13 试做中</p>
+
+    <!-- 视图导航（Day 13）。用 <a href="#/..."> 而不是 <button>：
+         链接天生可点、可键盘聚焦、能右键新窗口打开、能被读屏当成导航 ——
+         一个标签三种用法，不用另外补无障碍代码。
+         选中态用 aria-current="page" 表达：它同时是"读屏能听懂"和"样式能挂钩"的同一个开关。 -->
+    <nav id="view-nav" class="view-nav" aria-label="主要视图">
+      <a id="nav-explore" class="view-tab" href="#/explore">探索</a>
+      <a id="nav-catalog" class="view-tab" href="#/catalog">图鉴</a>
+    </nav>
   </header>
 
-  <main id="scene-wrap">
-    <svg id="solar-scene" viewBox="-450 -450 900 900" role="img"
-         aria-labelledby="scene-title scene-desc">
-      <title id="scene-title">太阳系 2D 轨道图</title>
-      <desc id="scene-desc">太阳位于中心，行星沿各自的椭圆轨道绕太阳运行。</desc>
-    </svg>
+  <!-- ============================================================
+       视图 1 · 探索（#/explore）
+       2D 轨道主图 + 调控区。Day 13 起独立成视图（原先是整页的一部分）。
+       ============================================================ -->
+  <div id="view-explore" class="view" data-view-for="explore">
+    <main id="scene-wrap">
+      <svg id="solar-scene" viewBox="-450 -450 900 900" role="img"
+           aria-labelledby="scene-title scene-desc">
+        <title id="scene-title">太阳系 2D 轨道图</title>
+        <desc id="scene-desc">太阳位于中心，行星沿各自的椭圆轨道绕太阳运行。</desc>
+      </svg>
 
-    <!-- 主图区的状态层（Day 8 第 4 步）。
-         数据取不到（error）或数据是空的（empty）时，主图上会是空白 ——
-         空白最让人困惑，所以要有一条说明这里发生了什么。
-         显隐完全由 CSS 读 <body data-page-state> 决定，
-         脚本不用管它；这样"状态"和"样子"是分开的。
+      <!-- 主图区的状态层（Day 8 第 4 步）。
+           数据取不到（error）或数据是空的（empty）时，主图上会是空白 ——
+           空白最让人困惑，所以要有一条说明这里发生了什么。
+           显隐完全由 CSS 读 <body data-page-state> 决定，
+           脚本不用管它；这样"状态"和"样子"是分开的。
 
-         两种状态各说各的话：
-           error —— 出错了，给一个「重新加载」按钮（用户有可做的事）
-           empty —— 本来就没有内容，给按钮也没用，只说明情况 -->
-    <div id="scene-state" class="scene-state">
-      <p class="scene-state-text" data-when="empty">暂时没有可显示的天体资料，主图是空的。</p>
-      <p class="scene-state-text" data-when="error">太阳系主图没能加载成功。</p>
-      <button id="scene-state-retry" class="scene-state-retry" type="button"
-              data-when="error">重新加载</button>
-    </div>
-  </main>
-
-  <!-- 调控区（PRD F3「教学机关」）。
-       三块控件：时间流速 / 尺度切换 / 教学对比。
-       按钮由 src/controls.js 按 SOLAR_CONFIG 里的档位生成，
-       这样改档位只需要改数据文件，不用动 HTML。 -->
-  <section id="control-bar" class="control-bar" aria-label="调控区">
-    <div class="ctrl-group">
-      <span class="ctrl-label">时间流速</span>
-      <div id="ctrl-speed" class="btn-row"></div>
-    </div>
-    <div class="ctrl-group">
-      <span class="ctrl-label">轨道比例</span>
-      <div id="ctrl-scale" class="btn-row"></div>
-    </div>
-    <div class="ctrl-group">
-      <span class="ctrl-label">教学对比</span>
-      <div class="btn-row">
-        <button type="button" id="ctrl-compare" class="btn btn-toggle"
-                aria-expanded="false" aria-controls="compare-panel">看公转快慢</button>
+           两种状态各说各的话：
+             error —— 出错了，给一个「重新加载」按钮（用户有可做的事）
+             empty —— 本来就没有内容，给按钮也没用，只说明情况 -->
+      <div id="scene-state" class="scene-state">
+        <p class="scene-state-text" data-when="empty">暂时没有可显示的天体资料，主图是空的。</p>
+        <p class="scene-state-text" data-when="error">太阳系主图没能加载成功。</p>
+        <button id="scene-state-retry" class="scene-state-retry" type="button"
+                data-when="error">重新加载</button>
       </div>
+    </main>
+
+    <!-- 调控区（PRD F3「教学机关」）。
+         三块控件：时间流速 / 尺度切换 / 教学对比。
+         按钮由 src/controls.js 按 SOLAR_CONFIG 里的档位生成，
+         这样改档位只需要改数据文件，不用动 HTML。 -->
+    <section id="control-bar" class="control-bar" aria-label="调控区">
+      <div class="ctrl-group">
+        <span class="ctrl-label">时间流速</span>
+        <div id="ctrl-speed" class="btn-row"></div>
+      </div>
+      <div class="ctrl-group">
+        <span class="ctrl-label">轨道比例</span>
+        <div id="ctrl-scale" class="btn-row"></div>
+      </div>
+      <div class="ctrl-group">
+        <span class="ctrl-label">教学对比</span>
+        <div class="btn-row">
+          <button type="button" id="ctrl-compare" class="btn btn-toggle"
+                  aria-expanded="false" aria-controls="compare-panel">看公转快慢</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 教学对比面板：把 8 颗行星的公转周期并排画成条，
+         一眼看出「水星 88 天」和「海王星 59800 天」差多少。
+         内容由 src/controls.js 生成。
+
+         Day 11：外面套了一层 .compare-wrap —— 因为 hidden 走 display:none，
+         而 display 没法做过渡。外层的显隐归脚本管，内层的透明度/位移归 CSS 管，
+         这样面板打开时才能有"滑入 + 淡入"的过渡（收起时相反）。
+         外层的 hidden 属性仍然保留：脚本不可用时面板默认不挡住页面。 -->
+    <div id="compare-wrap" class="compare-wrap" hidden>
+      <div id="compare-panel" class="compare-panel"></div>
     </div>
-  </section>
-
-  <!-- 教学对比面板：把 8 颗行星的公转周期并排画成条，
-       一眼看出「水星 88 天」和「海王星 59800 天」差多少。
-       内容由 src/controls.js 生成。
-
-       Day 11：外面套了一层 .compare-wrap —— 因为 hidden 走 display:none，
-       而 display 没法做过渡。外层的显隐归脚本管，内层的透明度/位移归 CSS 管，
-       这样面板打开时才能有"滑入 + 淡入"的过渡（收起时相反）。
-       外层的 hidden 属性仍然保留：脚本不可用时面板默认不挡住页面。 -->
-  <div id="compare-wrap" class="compare-wrap" hidden>
-    <div id="compare-panel" class="compare-panel"></div>
   </div>
 
-  <!-- 天体目录（Day 8 第 3 步新增）。
-       主图上的行星只是几个小圆点，新手未必知道该点哪里；
-       这里把 11 个天体列成卡片，点一张等于在图上点了它一次。
-       卡片由 src/catalog.js 生成；data-state 决定这一区当前显示什么：
-         loading → 转圈 + 「正在读取天体资料…」
-         success → 卡片列表
-         empty   → 一句"没有资料"
-         error   → 一句"没读取成功"
-       四种状态的具体样子写在 styles/main.css 里。 -->
-  <section id="catalog" class="catalog" aria-labelledby="catalog-title">
-    <div class="catalog-head">
-      <h2 id="catalog-title" class="catalog-title">天体目录</h2>
-      <!-- role="status"（Day 12）：计数一变（共 11 个 → 共 8 个）就让读屏念出来。
-           筛出几个是筛选交互的核心信息，看不见它的人也应该知道。 -->
-      <span id="catalog-count" class="catalog-count" role="status"></span>
-    </div>
-    <p class="catalog-sub">点一张卡片，就等于在主图上点了它一次。</p>
-
-    <!-- 筛选条（Day 12）。
-         默认 hidden：数据还没读到时留着它没有意义（类型按钮要按真实数据生成），
-         而且"加载中/出错"的时候也不该让用户去筛一堆还不存在的东西。
-         src/filter.js 拿到数据（catalog:ready 事件）后才把 hidden 撤掉。
-         按钮由脚本按数据里**真实出现过**的类型生成 —— 以后加天体，
-         类型会自动多出来，不会漏。 -->
-    <div id="catalog-filter" class="catalog-filter" hidden>
-      <div class="filter-group">
-        <span id="filter-type-label" class="filter-label">类型</span>
-        <div id="filter-types" class="filter-types" role="group" aria-labelledby="filter-type-label"></div>
+  <!-- ============================================================
+       视图 2 · 图鉴（#/catalog）
+       天体目录 11 张卡片 + 筛选条。Day 13 从探索视图里分出来独立成屏。
+       ============================================================ -->
+  <div id="view-catalog" class="view" data-view-for="catalog">
+    <!-- 天体目录（Day 8 第 3 步新增）。
+         主图上的行星只是几个小圆点，新手未必知道该点哪里；
+         这里把 11 个天体列成卡片。Day 13 起：点一张卡片 = 打开它的详情视图。
+         卡片由 src/catalog.js 生成；data-state 决定这一区当前显示什么：
+           loading → 转圈 + 「正在读取天体资料…」
+           success → 卡片列表
+           empty   → 一句"没有资料"
+           error   → 一句"没读取成功"
+         四种状态的具体样子写在 styles/main.css 里。 -->
+    <section id="catalog" class="catalog" aria-labelledby="catalog-title">
+      <div class="catalog-head">
+        <h2 id="catalog-title" class="catalog-title">天体目录</h2>
+        <!-- role="status"（Day 12）：计数一变（共 11 个 → 共 8 个）就让读屏念出来。
+             筛出几个是筛选交互的核心信息，看不见它的人也应该知道。 -->
+        <span id="catalog-count" class="catalog-count" role="status"></span>
       </div>
-      <div class="filter-group">
-        <label class="filter-label" for="filter-search">搜索</label>
-        <input id="filter-search" class="filter-input" type="search"
-               placeholder="名字，如「木」" autocomplete="off">
+      <p class="catalog-sub">点一张卡片，打开它的详情页。</p>
+
+      <!-- 筛选条（Day 12）。
+           默认 hidden：数据还没读到时留着它没有意义（类型按钮要按真实数据生成），
+           而且"加载中/出错"的时候也不该让用户去筛一堆还不存在的东西。
+           src/filter.js 拿到数据（catalog:ready 事件）后才把 hidden 撤掉。
+           按钮由脚本按数据里**真实出现过**的类型生成 —— 以后加天体，
+           类型会自动多出来，不会漏。 -->
+      <div id="catalog-filter" class="catalog-filter" hidden>
+        <div class="filter-group">
+          <span id="filter-type-label" class="filter-label">类型</span>
+          <div id="filter-types" class="filter-types" role="group" aria-labelledby="filter-type-label"></div>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label" for="filter-search">搜索</label>
+          <input id="filter-search" class="filter-input" type="search"
+                 placeholder="名字，如「木」" autocomplete="off">
+        </div>
       </div>
+
+      <div id="catalog-body" class="catalog-body" data-state="loading"
+           aria-live="polite" aria-busy="true">
+        <ul id="catalog-list" class="catalog-list"></ul>
+        <p id="catalog-msg" class="catalog-msg">
+          <span class="wait-dot" aria-hidden="true"></span><span id="catalog-msg-text">正在读取天体资料…</span>
+          <!-- 「筛出 0 个」时的出口。只在 data-state="no-match" 时露出来（CSS 管）。
+               为什么这个状态给按钮、而"数据源本身为空"（empty）不给 ——
+               判据还是 Day 8 那条：用户做点什么有没有用。
+               点一下清空就能把东西找回来，所以给；数据源本来就空的话给了也白给。 -->
+          <button id="catalog-clear" class="catalog-clear" type="button">清空筛选</button>
+          <!-- 「重新加载」（Day 13 新增）。
+               这句错误提示原来叫用户去点"**上面的**「重新加载」" —— 那是主图区那一颗。
+               Day 13 把主图和目录拆成两个视图之后，它在**探索**视图里，
+               站在图鉴上根本看不到它，那句话就成了指不到目标的指路牌。
+               所以图鉴自带一颗：用户在哪一屏出事，就在哪一屏能解决。
+               为什么 error 给按钮、empty 不给 —— 判据同 Day 8：
+               重试有用的（数据没读成功）给，重试没用的（本来就没内容）不给。 -->
+          <button id="catalog-retry" class="catalog-retry" type="button">重新加载</button>
+        </p>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============================================================
+       视图 3 · 详情（#/body/:id）
+       单个天体的四项资料 + 对数对比条 + 「看 3D 特写」入口。
+
+       ⚠️ 这里用的还是原来资料卡的 id（#body-card / #card-title / #card-facts …），
+       一个都没改 —— 因为 src/scene2d.js 的 renderBodyCard() 就是按这些 id 填内容的。
+       id 不变，那份渲染逻辑一行都不用改，详情视图直接复用。
+       变的只是它的身份：从"浮在上面的卡片"变成"页面里的一块内容"。
+
+       Day 13 的另一处变化：原来点天体是"资料卡 + 3D 一起弹"，
+       现在资料变成页面（地址 #/body/:id），3D 仍是浮层，由下面那个按钮打开。 -->
+  <div id="view-body" class="view" data-view-for="body">
+    <div class="body-view-bar">
+      <!-- 返回上一页（余力加练之一）。src/router.js 里做了兜底：
+           如果是直接输地址进来的（没有"上一页"），就回到图鉴，不会退到站外。 -->
+      <button id="body-back" class="btn body-back" type="button">← 返回</button>
     </div>
 
-    <div id="catalog-body" class="catalog-body" data-state="loading"
-         aria-live="polite" aria-busy="true">
-      <ul id="catalog-list" class="catalog-list"></ul>
-      <p id="catalog-msg" class="catalog-msg">
-        <span class="catalog-wait-dot" aria-hidden="true"></span><span id="catalog-msg-text">正在读取天体资料…</span>
-        <!-- 「筛出 0 个」时的出口。只在 data-state="no-match" 时露出来（CSS 管）。
-             为什么这个状态给按钮、而"数据源本身为空"（empty）不给 ——
-             判据还是 Day 8 那条：用户做点什么有没有用。
-             点一下清空就能把东西找回来，所以给；数据源本来就空的话给了也白给。 -->
-        <button id="catalog-clear" class="catalog-clear" type="button">清空筛选</button>
+    <!-- 详情视图的状态层（Day 13 第 3 步）。和主图区的 #scene-state 同一个套路：
+         脚本只改 data-state，长什么样交给 CSS。
+            loading → 正在读取
+            empty   → 地址里那个天体不存在（改地址就能解决 → 给「回到图鉴」出口）
+            error   → 资料没读出来（重试可能有用 → 给「重新加载」）
+         它排在资料卡**前面**：一是阅读顺序上"先说状态、再说内容"，
+         二是 CSS 用兄弟选择器（~）在非成功态把下面的资料卡整个收掉。 -->
+    <div id="body-state" class="body-state" data-state="loading" aria-live="polite">
+      <p class="body-state-line">
+        <span class="wait-dot" aria-hidden="true"></span>
+        <span id="body-state-text" class="body-state-text">正在读取这个天体的资料…</span>
+      </p>
+      <p class="body-state-actions">
+        <button id="body-state-retry" class="btn" type="button" data-when="error">重新加载</button>
+        <button id="body-state-catalog" class="btn" type="button" data-when="empty">回到图鉴</button>
       </p>
     </div>
-  </section>
+
+    <aside id="body-card" class="body-card">
+      <h2 id="card-title" class="card-title"></h2>
+      <p id="card-type" class="card-type"></p>
+      <p class="card-legend">下面的条越长，表示这项数值越大；竖线是地球所在的位置。</p>
+      <div id="card-facts" class="card-facts"></div>
+      <div id="card-compare" class="card-compare"></div>
+      <p id="card-source" class="card-source"></p>
+    </aside>
+
+    <p class="body-view-actions">
+      <button id="body-view-3d" class="btn" type="button">看 3D 特写</button>
+    </p>
+  </div>
 
   <footer class="page-footer">
     <p>数据来源：NASA Planetary Fact Sheet ／ NASA Sun Fact Sheet（逐条标注见 <code>src/data/bodies.js</code>）</p>
   </footer>
 
-  <!-- 3D 聚焦遮罩（点击天体后出现）。
+  <!-- 3D 聚焦遮罩（Day 13 起由详情页的「看 3D 特写」按钮打开，仍然是浮层）。
        canvas 由 src/focus3d.js 生成，Three.js 也是那时才开始加载。 -->
   <div id="focus-overlay" class="focus-overlay" hidden>
     <div class="focus-top">
@@ -148,23 +230,15 @@
     <div id="focus-stage" class="focus-stage"></div>
   </div>
 
-  <!-- 资料卡（点击天体后出现）。
-       这里只放空壳，具体内容由 src/scene2d.js 填进去。 -->
-  <aside id="body-card" class="body-card" hidden>
-    <button id="card-close" class="card-close" type="button" aria-label="关闭资料卡">×</button>
-    <h2 id="card-title" class="card-title"></h2>
-    <p id="card-type" class="card-type"></p>
-    <p class="card-legend">下面的条越长，表示这项数值越大；竖线是地球所在的位置。</p>
-    <div id="card-facts" class="card-facts"></div>
-    <div id="card-compare" class="card-compare"></div>
-    <p id="card-source" class="card-source"></p>
-  </aside>
-
   <script src="src/data/bodies.js"></script>
   <script src="src/fallback.js"></script>
   <!-- states.js 排在主图脚本之前：就算后面哪一个脚本报错，
        状态机也已经在跑，过渡屏仍能按时让路（PRD 5.3 不卡死）。 -->
   <script src="src/states.js"></script>
+  <!-- router.js 只管地址栏与视图的对应关系，不碰内容本身。
+       它要读 <body data-view>、要调详情视图的渲染 —— 这些都发生在
+       DOMContentLoaded 之后，所以它和其它脚本之间没有顺序依赖。 -->
+  <script src="src/router.js"></script>
   <script src="src/scene2d.js"></script>
   <script src="src/catalog.js"></script>
   <!-- filter.js 排在 catalog.js 之后：它靠 catalog.js 发出的

@@ -171,6 +171,13 @@
   }
 
   window.pageState = {
-    current: function () { return state; }
+    current: function () { return state; },
+
+    /* Day 13：把「数据层到底给出结论了吗」这个判据也对外开放。
+       详情视图（src/router.js）需要同一个结论 —— 数据文件取不到时它得说"错误"，
+       而不是"没有找到这个天体"（那是"空"，两回事）。
+       判据只能有一处定义，所以从这里借出去用，**不在 router.js 里另写一套**
+       —— 两套判据迟早会写岔，然后就出现"探索说错误、详情说空"的串台。 */
+    dataVerdict: dataVerdict
   };
 })();
