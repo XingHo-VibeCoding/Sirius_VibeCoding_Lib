@@ -39,8 +39,9 @@
   const KNOWN_VIEWS = ['explore', 'catalog', ID_VIEW];
 
   let current = { view: '', id: '' };
-  /* 「返回」要回哪儿。从一级视图点进详情时记下来，
-     这样刷新后（内存清空）也不会退到站外 —— 见 goBack()。 */
+  /* 详情页的"上一层"是谁。从一级视图点进详情时记下来 ——
+     面包屑第一段的文字、链接，以及它的点击行为（走 history.back()）都用它。
+     见 updateCrumb()。 */
   let cameFrom = '';
 
   /* ---------- 1. 解析：把 hash 变成 {view, id} ---------- */
@@ -95,6 +96,7 @@
     syncNav(next.view);
 
     if (next.view === ID_VIEW) {
+      updateCrumb(next.id);
       renderBody(next.id);
     } else {
       /* 离开详情时把还没走完的那次"读取"作废。
@@ -226,30 +228,52 @@
     }
   }
 
-  /* ---------- 6. 「返回」---------- */
+  /* ---------- 6. 面包屑（Day 13 余力加练）---------- */
 
-  function goBack() {
-    /* 有来路（站内从一级视图点进来的）：直接走浏览器自己的历史后退。
-       为什么不 go(cameFrom)：那会**再压一条新记录**。于是用户点完「← 返回」
-       再按浏览器后退键，又弹回详情页 —— 站内「返回」和浏览器后退键打架（乒乓）。
-       走 history.back() 之后两者就是同一条路径，天然不冲突。 */
-    if (cameFrom && cameFrom !== ID_VIEW) {
-      window.history.back();
+  /* 视图 → 中文名（只有一级视图会出现在面包屑第一段）。 */
+  const VIEW_LABEL = { explore: '探索', catalog: '图鉴' };
+
+  /* 面包屑 = 「上一层 › 当前天体」。
+     第一段**跟随来路**：从探索点进来就写"探索"，从图鉴点进来就写"图鉴"；
+     没有来路（直接输地址、刷新、点别人分享的链接）兜底成默认视图。
+     第二段是天体名字 —— 这里**同步直接查**，不等那 300ms：
+     面包屑说的是"你在哪一屏"，和内容加载完没完是两件事。
+     （id 查不到时退回显示 id 原文，正好和详情页空态那句"没有找到「××」"对得上。） */
+  function updateCrumb(id) {
+    const parent = document.getElementById('crumb-parent');
+    const cur = document.getElementById('crumb-current');
+    if (!parent || !cur) {
       return;
     }
-    /* 没有来路（直接输地址、刷新、或点的别人分享的链接）：
-       浏览器历史里没有"上一屏"可退，用 back() 会退出站外。
-       所以回图鉴，并**用 replace 不新增记录** —— 同样不乒乓。
-       （用户按「返回」是想继续看，不是想离开。） */
-    window.location.replace('#/catalog');
+
+    const from = (cameFrom && cameFrom !== ID_VIEW) ? cameFrom : DEFAULT_VIEW;
+    parent.textContent = VIEW_LABEL[from] || VIEW_LABEL[DEFAULT_VIEW];
+    parent.setAttribute('href', '#/' + from);
+
+    const found = findBody(id);
+    cur.textContent = found ? (found.nameZh || found.id) : (id || '未知天体');
   }
 
   /* ---------- 7. 接线 ---------- */
 
   function bind() {
-    const back = document.getElementById('body-back');
-    if (back) {
-      back.addEventListener('click', goBack);
+    /* 面包屑第一段在语义上就是「回上一层」。所以拦下左键点击、改走 history.back()，
+       而不是让 <a> 自己压一条新记录 —— 否则点完它再按浏览器后退键会又弹回详情
+       （乒乓，和 Day 13 修的那个坑同源）。
+       中键 / Ctrl+点击 / 右键"在新标签打开"**不拦**：那些本来就是要走 href 的。
+       没有来路时（直接输地址、刷新进来）也不拦 —— 历史里没有"上一屏"可退，
+       back() 会退出站外，让 href 带用户去兜底视图才对。 */
+    const crumb = document.getElementById('crumb-parent');
+    if (crumb) {
+      crumb.addEventListener('click', function (ev) {
+        if (ev.button !== 0 || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) {
+          return;
+        }
+        if (cameFrom && cameFrom !== ID_VIEW) {
+          ev.preventDefault();
+          window.history.back();
+        }
+      });
     }
 
     const retry = document.getElementById('body-state-retry');

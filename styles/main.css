@@ -1164,8 +1164,38 @@ body[data-view="body"] #view-body {
   margin: 0 0 12px;
 }
 
-.body-back {
-  font-size: 12px;      /* 外观沿用调控区的 .btn，Day 9 已过对比度与触控检查 */
+/* 面包屑（Day 13 余力加练，取代原来的「← 返回」按钮）。
+   配色沿用导航标签 .view-tab 那套（已过对比度检查）：
+   第一段用未选中色，当前位置用最亮的 #e8ecf5。 */
+.body-crumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.crumb-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;         /* 桌面鼠标标准 24×24；手指标准 44 见手机档 */
+  color: #b5c0d6;
+  text-decoration: none;
+}
+
+.crumb-link:hover,
+.crumb-link:focus-visible {
+  color: #e8ecf5;
+  text-decoration: underline;
+}
+
+.crumb-sep {
+  color: #8b98b3;           /* 装饰性分隔符（aria-hidden），但视觉上也要看得清 */
+}
+
+.crumb-current {
+  color: #e8ecf5;           /* 当前位置最亮 */
 }
 
 .body-view-actions {
@@ -1422,5 +1452,16 @@ body[data-view="body"] #body-state:not([data-state="success"]) ~ .body-view-acti
   .scene-state-retry {
     min-height: 44px;
     padding: 7px 18px;
+  }
+
+  /* 面包屑第一段（Day 13 取代「← 返回」）—— 同一个病，新元素也要补上。
+     它是个 <a>，不垫的话只有 24×16 左右。
+     ⚠️ 光把高度垫到 44 还不够：实测「探索」两个字横着只有 36px ——
+     44×44 是**两个方向**的要求，只补一个方向会留下"半达标"的假绿灯。 */
+  .crumb-link {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0 6px;
+    justify-content: center;
   }
 }

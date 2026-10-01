@@ -178,9 +178,21 @@
        现在资料变成页面（地址 #/body/:id），3D 仍是浮层，由下面那个按钮打开。 -->
   <div id="view-body" class="view" data-view-for="body">
     <div class="body-view-bar">
-      <!-- 返回上一页（余力加练之一）。src/router.js 里做了兜底：
-           如果是直接输地址进来的（没有"上一页"），就回到图鉴，不会退到站外。 -->
-      <button id="body-back" class="btn body-back" type="button">← 返回</button>
+      <!-- 面包屑（Day 13 余力加练）。它**取代**了原来的「← 返回」按钮 ——
+           两者的第一段做的是同一件事（回上一层），并存就重复了。
+           两段各有用处：
+             第一段 = 上一层。**跟随来路**：从探索点进来就写"探索"，从图鉴点进来就写"图鉴"。
+             第二段 = 当前天体，纯文本（aria-current="page" 标出"你在这里"）。
+
+           ⚠️ 第一段虽然写成 <a>，但 src/router.js 会拦下左键点击、改走 history.back()
+           —— 让 <a> 自己压一条新记录的话，点完它再按浏览器后退键会又弹回详情
+           （和今天修的「返回乒乓」是同一个坑）。中键 / Ctrl+点击 / 右键"新标签打开"
+           不拦，那些本来就是要走 href 的。 -->
+      <nav id="body-crumb" class="body-crumb" aria-label="面包屑">
+        <a id="crumb-parent" class="crumb-link" href="#/explore">探索</a>
+        <span class="crumb-sep" aria-hidden="true">›</span>
+        <span id="crumb-current" class="crumb-current" aria-current="page"></span>
+      </nav>
     </div>
 
     <!-- 详情视图的状态层（Day 13 第 3 步）。和主图区的 #scene-state 同一个套路：
