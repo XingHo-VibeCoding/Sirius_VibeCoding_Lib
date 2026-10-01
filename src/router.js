@@ -52,7 +52,10 @@
 
     // 认不出的（含空 hash、手输错的路径）一律回默认视图
     if (KNOWN_VIEWS.indexOf(head) < 0) {
-      return { view: DEFAULT_VIEW, id: '' };
+      /* fallback 标记：告诉 route() 这段地址并不是用户真想看的视图，
+         该把地址栏也补成规范形式，而不是就这么留一条空地址 / 乱路径。
+         apply() 只读 view / id，多带一个字段无影响。 */
+      return { view: DEFAULT_VIEW, id: '', fallback: true };
     }
     return {
       view: head,
@@ -226,14 +229,19 @@
   /* ---------- 6. 「返回」---------- */
 
   function goBack() {
-    // 有来路就回原来的视图（从图鉴进来就回图鉴，从探索进来就回探索）
+    /* 有来路（站内从一级视图点进来的）：直接走浏览器自己的历史后退。
+       为什么不 go(cameFrom)：那会**再压一条新记录**。于是用户点完「← 返回」
+       再按浏览器后退键，又弹回详情页 —— 站内「返回」和浏览器后退键打架（乒乓）。
+       走 history.back() 之后两者就是同一条路径，天然不冲突。 */
     if (cameFrom && cameFrom !== ID_VIEW) {
-      go(cameFrom);
+      window.history.back();
       return;
     }
     /* 没有来路（直接输地址、刷新、或点的别人分享的链接）：
-       回图鉴，**不退到站外** —— 用户按「返回」是想继续看，不是想离开。 */
-    go('catalog');
+       浏览器历史里没有"上一屏"可退，用 back() 会退出站外。
+       所以回图鉴，并**用 replace 不新增记录** —— 同样不乒乓。
+       （用户按「返回」是想继续看，不是想离开。） */
+    window.location.replace('#/catalog');
   }
 
   /* ---------- 7. 接线 ---------- */
@@ -282,8 +290,19 @@
   /* 入口：解析当前地址。 */
   function route() {
     const next = parse(window.location.hash);
+
+    /* 认不出的地址（空 hash / 手输错的路径 / 别人给的旧链接）：
+       画面落到探索，同时**把地址栏也补成 #/explore**。
+       一条规矩：地址栏永远反映当前视图 —— 否则用户刷新、收藏、把地址发给别人，
+       拿到的都是一条空地址，下一跳又得靠兜底，永远停不下来。
+       replace 不新增历史记录，用户按返回不会卡在这一步。 */
+    if (next.fallback) {
+      window.location.replace('#/' + DEFAULT_VIEW);
+      return;
+    }
+
     /* `#/body` 后面没跟 id —— 没有内容可给，退到图鉴。
-       用 replace 不新增历史记录，用户按返回不会卡在这一步。 */
+       同样用 replace 不新增历史记录。 */
     if (next.view === ID_VIEW && !next.id) {
       window.location.replace('#/catalog');
       return;
