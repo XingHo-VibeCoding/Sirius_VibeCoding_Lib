@@ -1,0 +1,8 @@
+{
+  "name": "health",
+  "version": "1.0.0",
+  "description": "Day 15 第一个云函数：只回 { ok: true, service: \"solar System\" }，不连数据库、无依赖",
+  "main": "index.js",
+  "private": true,
+  "license": "UNLICENSED"
+}

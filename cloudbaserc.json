@@ -1,0 +1,15 @@
+{
+  "version": "2.0",
+  "envId": "solar-system-d3g10b341a8d66aa6",
+  "functionRoot": "cloudfunctions",
+  "functions": [
+    {
+      "name": "health",
+      "timeout": 5,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "description": "Day 15 探活接口：只回 { ok: true, service: \"solar System\" }，不连数据库、无依赖",
+      "envVariables": {}
+    }
+  ]
+}
