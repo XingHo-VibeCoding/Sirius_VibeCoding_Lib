@@ -1,7 +1,7 @@
 # API 契约（api-contract.md）
 
-> **状态：占位登记，尚未实现。**
-> Day 15 只把接口"长什么样"写清楚，**不写任何业务代码、不建表**。
+> **状态：表结构已落地（Day 16），业务接口仍未实现。**
+> Day 15 定了接口"长什么样"；Day 16 把数据库的 2 张表真的建出来并灌了数据（见 **四、数据模型**）。
 > 这份文件是 **Day 16–20 建表和写接口的唯一依据** —— 后面写接口时以它为准，不再临时改主意。
 
 | | |
@@ -9,8 +9,10 @@
 | 项目 | 重走太阳系（可交互的 2D/3D 太阳系科普网页） |
 | 前端形态 | **原生 HTML + JS，无构建步骤**（`index.html` + `src/*.js`） |
 | 后端平台 | **腾讯云 CloudBase（云开发）** 免费体验环境 |
-| 契约版本 | v0.1.1（Day 15 占位；同日核对后修订） |
-| 今日已实现 | **只有 `GET /api/health`**（见下），其余全是占位 |
+| 数据库 | **PostgreSQL** —— `sources` 4 行 / `bodies` 11 行，共 15 条约束（见 **四、数据模型**） |
+| 契约版本 | **v0.2**（Day 15 占位 v0.1.1 → Day 16 补数据模型） |
+| 已实现 | `GET /api/health` ✅ ｜ **两张表已建好且已灌数据** ✅ |
+| 未实现 | `GET /api/bodies`、`GET /api/bodies/:id` —— 仍是**占位**，Day 17 起写 |
 
 ---
 
@@ -32,6 +34,15 @@
 > 📌 **真要一个"有收益"的接口**，应该配一个**页面现在没有的功能** ——
 > 比如「我的观测记录」「收藏的天体」。那属于**改版级**动作，今天清单没要求。
 > 这个判断留给 Day 16 建表前再确认一次：**如果那时仍觉得没收益，应当如实说出来，而不是硬做。**
+
+**Day 16 的回执**（按上面那句要求，如实回答）：
+
+建表做完了，但**这个判断的答案没有变** —— 数据现在仍然全在 `src/data/bodies.js` 里，
+搬到后端**只会多一跳网络**，性能更差。
+
+今天建表是因为清单要求走通"数据层"这一环（学习目的：认识数据模型、外键、约束），
+**不是因为页面现在需要它**。⇒ 接口到底接不接进页面，留到 **Day 17 动手前再确认一次**；
+如果那时结论仍是"没收益"，应当照实说，**不硬接**。
 
 ---
 
@@ -158,7 +169,9 @@ https://<环境ID>-<系统分配的数字后缀>.ap-shanghai.app.tcloudbase.com/
 
 ---
 
-## 三、占位接口（**Day 16–20 实现，今天只登记**）
+## 三、占位接口（**Day 17–20 实现，至今只登记**）
+
+> 📌 **Day 16 没有实现它们** —— 那天只建了表（见四）。这里的形状仍是 Day 15 定的占位。
 
 ### 3.1 `GET /api/bodies` —— 天体列表
 
@@ -310,26 +323,150 @@ https://<环境ID>-<系统分配的数字后缀>.ap-shanghai.app.tcloudbase.com/
 
 ---
 
-## 四、Day 16–20 会碰、但今天**不登记**的东西
+## 四、数据模型（Day 16 建的表）
+
+> 本节描述的是**实际建出来的结构**，依据 `db/schema.sql`（**不是**凭印象写）。
+> 三个文件都在仓库 `db/` 下：
+>
+> | 文件 | 作用 |
+> |---|---|
+> | `db/schema.sql` | **建表**（含主键/外键/约束），可重复执行 |
+> | `db/seed.sql` | **种子数据**（自包含：DROP → CREATE → INSERT），可重复执行 |
+> | `db/gen-seed.mjs` | 生成 `seed.sql` 的**工具**（实跑 `src/data/bodies.js` 取值，非手抄） |
+>
+> 📌 **改了表结构的正确顺序**：改 `db/schema.sql` → 跑 `node db/gen-seed.mjs` → 跑 `db/seed.sql`。
+> （`seed.sql` 的建表段是从 `schema.sql` 抽取的，所以两者不会漂移。）
+
+### 4.1 两张表各存什么
+
+| 表 | 存什么 | 行数 |
+|---|---|---|
+| `sources` | **数据来源**：来源编号 / 显示名 / 网址 | **4** |
+| `bodies` | **天体**：每个天体的身份、尺寸与轨道、相对地球、外观、来源 | **11** |
+
+**关联字段：`bodies.source_id` → `sources.id`**（外键）
+
+> 📌 **为什么要有两张表**：8 个行星的数据来自**同一份** NASA 资料。
+> 把网址直接写进 `bodies` 的每一行 = 同一个长网址重复 8 遍，改一次要改 8 处。
+> 存"编号"、由编号去 `sources` 表查 ⇒ **只写一份、只改一处**。
+
+### 4.2 `sources`（4 行 × 3 列）
+
+| 列 | 类型 | 约束 | 说明 |
+|---|---|---|---|
+| `id` | text | **主键** | 沿用代码里 `DATA_SOURCES` 的键名 |
+| `label` | text | NOT NULL | 显示名 |
+| `url` | text | NOT NULL | 网址 |
+
+4 个来源：`factSheetMetric` / `sunFactSheet` / `moonFactSheet` / `jplSbdbHalley`
+
+> ⚠️ **只有 4 行，不是 5 行。** 清单的完成标准写的是"每张核心表 select ≥ 5 行"，
+> 但代码里的 `DATA_SOURCES` **本来就只有 4 条** —— 凭空加第 5 条就是编造数据（项目红线）。
+> ⇒ **如实记 4 行，缺口明写在这里，不凑数。**
+
+### 4.3 `bodies`（11 行 × 28 列）
+
+| 这一堆 | 列 | 说明 |
+|---|---|---|
+| 身份 | `id`(主键) · `name_zh` · `name_en`(唯一) · `type` | `type` ∈ `star` / `planet` / `moon` / `comet` |
+| 尺寸与轨道 | `diameter_km` · `distance_from_sun_km` · `distance_raw` · `orbital_period_days` · `eccentricity` | ⚠️ 后两列**只有太阳是 NULL** |
+| 相对地球 | `ratio_diameter` · `ratio_distance` · `ratio_period` | 来自 `compareToEarth`；后两列太阳为 NULL |
+| 外观 | `appearance_main_color` · `appearance_has_ring` · `appearance_note` · `appearance_ring_note` | 后两列**只有部分行有** |
+| 来源 | `source_id`(**外键**) · `source_extra_id`(外键，可空) · `source_status` | 见 4.4 |
+| **月球专用** | `parent_id`(**自引用外键**) · `distance_from_parent_km` · `distance_from_parent_raw` · `orbital_period_note` | 只有月球这 4 列非 NULL |
+| **哈雷专用** | `extent_raw` · `orbital_period_raw` · `perihelion_au` · `aphelion_au` | 只有哈雷这 4 列非 NULL |
+| 顺序 | `sort_order`(唯一) | 1 = 太阳 … 11 = 哈雷，图鉴的显示顺序 |
+
+### 4.4 两处"不是一对一"的地方
+
+**① 月球有两条来源** —— 全表唯一
+
+| 列 | 月球的值 | 其余 10 个天体 |
+|---|---|---|
+| `source_id` | `factSheetMetric` | 各自一个 |
+| `source_extra_id` | `moonFactSheet` | **NULL** |
+
+> 📌 顺序以**代码**为准：`bodies.js` 里是 `S1 + ' ＋ ' + S3`，**`factSheetMetric` 在前**。
+> 后端拼回 `source` 字符串时按「主 ＋ 附加」，与页面现在显示的完全一致。
+
+**② `parent_id` 是自引用外键** —— 月球 → 地球，而地球也在同一张表里
+
+⇒ **INSERT 顺序有讲究：地球必须先于月球**（`seed.sql` 里地球是第 4 条、月球是第 5 条，满足）。
+
+### 4.5 约束清单（**共 15 条**，Day 16 实测）
+
+| 种类 | 条数 | 明细 |
+|---|---|---|
+| 主键 | 2 | `bodies.id` · `sources.id` |
+| 外键 | 3 | `source_id`→`sources` · `source_extra_id`→`sources` · `parent_id`→**`bodies` 自己**（全部 `ON DELETE RESTRICT`）|
+| 唯一 | 2 | `uq_bodies_name_en` · `uq_bodies_sort_order` |
+| 检查 | 8 | `type` 取值 · `source_status` 取值 · `diameter_km > 0` · `distance_from_sun_km >= 0` · `orbital_period_days > 0` · `eccentricity ∈ [0,1)` · `sort_order > 0` · `parent_id <> id` |
+
+> ⚠️ **`uq_bodies_name_en` 是 Day 16 当天补的，值得记一笔。**
+> 初版 `db/schema.sql` **只在一句注释里写了"唯一"、没真的写 `UNIQUE`** ——
+> 于是设计说 15 条、实际只有 14 条。
+> ⇒ 教训：**拿到实际约束清单之后，要和设计清单逐条对账**；只看"总数对不对"是不够的
+> （14 和 15 只差一个，但差的是一个真实的数据保护）。
+
+### 4.6 列名为什么是 snake_case
+
+`bodies.js` 里是 `nameZh`，表里是 `name_zh`。
+
+⚠️ **PostgreSQL 里不加双引号的标识符会被折叠成小写** —— 建一个 `nameZh` 列，
+实际列名会变成 `namezh`，前端读 `row.nameZh` 拿到 `undefined`（**静默、不报错**）。
+
+⇒ 表里一律 snake_case，**由接口层映射回 camelCase**（见 4.7）。
+
+### 4.7 表 ↔ 接口字段的映射（Day 17 实现接口时用）
+
+| 表列 | 接口字段（JSON） | 备注 |
+|---|---|---|
+| `id` / `name_zh` / `name_en` / `type` | `id` / `nameZh` / `nameEn` / `type` | 直接改名 |
+| `diameter_km` / `distance_from_sun_km` / `distance_raw` / `source_status` | `diameterKm` / `distanceFromSunKm` / `distanceRaw` / `sourceStatus` | 直接改名 |
+| `ratio_diameter` · `ratio_distance` · `ratio_period` | `compareToEarth.diameter` · `.distance` · `.period` | **要重新拼成一个对象** |
+| `appearance_main_color` · `appearance_has_ring` · `appearance_note` · `appearance_ring_note` | `appearance.mainColor` · `.hasRing` · `.note` · `.ringNote` | **要重新拼成一个对象** |
+| `source_id` + `source_extra_id` | `source`（**单个字符串**） | 查 `sources.url`；有两条就按「主 ＋ 附加」拼 |
+| `parent_id` / `distance_from_parent_km` / `distance_from_parent_raw` / `orbital_period_note` | `parentId` / `distanceFromParentKm` / `distanceFromParentRaw` / `orbitalPeriodNote` | 只有月球有值 |
+| `extent_raw` / `orbital_period_raw` / `perihelion_au` / `aphelion_au` | `extentRaw` / `orbitalPeriodRaw` / `perihelionAu` / `aphelionAu` | 只有哈雷有值 |
+| `sort_order` | ——（**不出现在响应里**） | 只用于 `ORDER BY` |
+
+> ⚠️ **这是把"平铺的列"还原成"页面看到的嵌套结构"的唯一依据。**
+> 少了这一步映射，前端 `renderBodyCard()` 拿不到 `compareToEarth` / `appearance`，资料卡会缺块。
+
+### 4.8 怎么验证它是对的（Day 16 实测）
+
+不是"SELECT 出来看着没错"，而是**逐值断言**：
+
+| 检查 | 做法 | 实测结果 |
+|---|---|---|
+| 数据与代码是否一致 | 从云端 dump 全量 → 与 `src/data/bodies.js` **逐字段对拍** | **318 条断言 / 0 处差异** |
+| 约束是否真在拦 | **故意插坏数据**，看被哪条约束拒绝 | **6 / 6 全被拒**，报出的约束名与预测一字不差 |
+| 脚本能否重复执行 | `schema.sql` / `seed.sql` 各连跑两次 | 两次结果一致（幂等） |
+| 生成器是否可复现 | 连跑两次比对 sha256 | 完全相同 |
+
+---
+
+## 五、Day 17–20 会碰、但**至今不登记**的东西
 
 如实列出边界，避免以后以为漏了：
 
-| 项 | 为什么今天不写 |
+| 项 | 为什么还不写 |
 |---|---|
 | 用户系统 / 登录 | 页面当前**没有用户概念**，硬加等于虚构 |
-| 「收藏天体」「观测记录」 | 这是**方案 B** 才有的接口。今天拍板走**方案 A**（从现有内容推），所以不登记 |
-| PostgreSQL 建表 DDL | Day 16 的活；今天只定"接口形状"，不定"表结构" |
-| CORS 跨域配置 | Day 20；今天前端还没接接口，不存在跨域问题 |
+| 「收藏天体」「观测记录」 | 这是**方案 B** 才有的接口。Day 15 拍板走**方案 A**（从现有内容推），所以不登记 |
+| **把接口接进前端** | Day 17 的活。Day 16 **只建了表，前端一个字都没改** |
+| CORS 跨域配置 | Day 20；前端还没接接口，不存在跨域问题 |
 | 写接口（POST/PUT/DELETE） | 页面当前**没有用户能改的数据**，没有写需求 |
 
 ---
 
-## 五、变更记录
+## 六、变更记录
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
 | v0.1 | 2026-10-02（Day 15） | 初稿。登记 `GET /api/health`（已实现）+ `GET /api/bodies` / `GET /api/bodies/:id`（占位）。定下响应信封与错误码表 |
 | v0.1.1 | 2026-10-02（Day 15） | **核对后修订 4 处**（都是"写的时候凭印象、对的时候发现不对"）：<br>① 1.1 基础路径改成本环境实测域名（旧稿写成 CloudBase 旧版格式 `service.tcloudbase.com`）<br>② 3.1 列表接口删掉 `diameterKm` / `orbitalPeriodDays`（逐行核对 `catalog.js` 的 `buildCard()`，卡片只用 5 个字段）<br>③ 3.1 `q` 参数补上 `id` 也参与搜索（依据 `filter.js` 第 71 行）<br>④ 3.2 补上哈雷彗星独有 4 个字段 `extentRaw` / `orbitalPeriodRaw` / `perihelionAu` / `aphelionAu`（初稿标题写了"月球和哈雷"、正文只给了月球）|
+| **v0.2** | 2026-10-02（Day 16） | **新增「四、数据模型」整节**（表结构、外键、15 条约束、表↔接口字段映射、验证方法）；原「四、边界」「五、变更记录」顺延为五、六。<br>① 头部状态从"尚未实现/不建表"改为"表结构已落地"；契约版本 v0.1.1 → **v0.2**<br>② 新增 4.1–4.8 共 8 小节（4.7 是 Day 17 写接口时的**字段映射依据**）<br>③「零」节补上 **Day 16 回执**：建表已做，但"接口有没有实际收益"的判断**答案没变**，留 Day 17 再确认<br>④ 边界表删掉"PostgreSQL 建表 DDL"行（已做），改为"把接口接进前端（Day 17）"<br>⑤ 记录一处**当天发现并修掉的缺陷**：`name_en` 的唯一约束**设计有、实现没建**（注释写了"唯一"却没写 `UNIQUE`），已补 `uq_bodies_name_en` 并重跑全部验证 |
 
 > 🔴 **这份契约的"事实来源"优先级**（以后改它时按这个顺序核对，别凭印象）：
 > 1. **实际代码**（`src/data/bodies.js` 的字段、`catalog.js`/`filter.js` 真正读了什么）
