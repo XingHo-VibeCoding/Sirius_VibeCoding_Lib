@@ -22,6 +22,12 @@ body {
   flex-direction: column;
   align-items: center;
   overflow-x: hidden;
+  /* ⚠️ 这里【故意不写】justify-content: center。
+     Day 14 实测教训：一旦居中，内容比视口矮的时候整块会被垂直居中，
+     于是「往页面里塞东西 / 抽走东西」= 整页内容整体上下移动。
+     实测场景：探索页点一颗星 → 跳详情 → 头部和标签栏当场下移约 78px，
+     而此时手指还停在屏幕上，一下点偏就落到别的元素上了。
+     顶对齐没有这个毛病：内容从上往下排，下方留白。 */
 }
 
 /* ---------- 页头 ---------- */
@@ -1110,7 +1116,11 @@ body[data-page-state="error"] #control-bar {
 }
 
 /* 当前视图：用 flex column 接管原来 body 直接排布这些区块的职责
-   （body 本身是 flex column，这些区块原本是它的直接子元素）。 */
+   （body 本身是 flex column，这些区块原本是它的直接子元素）。
+   Day 14 的另一条推论：body 上**不要**加 justify-content: center ——
+   内容比视口矮时它会把整页垂直居中，于是"往页面里塞东西"就等于"整页往下挪"。
+   详见 main.css 顶部 body 那段注释。 */
+
 body[data-view="explore"] #view-explore,
 body[data-view="catalog"] #view-catalog,
 body[data-view="body"] #view-body {
