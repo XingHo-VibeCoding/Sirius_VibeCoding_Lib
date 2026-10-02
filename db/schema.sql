@@ -122,6 +122,104 @@ CREATE TABLE bodies (
     FOREIGN KEY (parent_id)       REFERENCES bodies (id)  ON DELETE RESTRICT
 );
 
+-- ----------------------------------------------------------------------------
+--  表与字段注释（Day 16 余力加练）
+--
+--  ⚠️ 这和上面的 `--` 注释**不是一回事**：
+--     · 上面的 `--` 注释只活在**这个脚本文件**里 —— 跑完它就没进数据库，
+--       数据库根本不知道有这些字；
+--     · 下面这些 COMMENT ON ... 会写进**数据库自己的元数据**（pg_description），
+--       控制台点开列名能看到"备注"，psql 的 \d+ 也能看到。
+--     所以这份脚本不只是"建表脚本"，还是"给表写说明书"。
+--
+--  ⚠️ COMMENT 必须写在 CREATE TABLE **之后**（表得先存在）。
+--     它也在 gen-seed.mjs 的抽取范围里 ⇒ seed.sql 会一起带上，自包含不变。
+-- ----------------------------------------------------------------------------
+
+COMMENT ON TABLE sources IS
+  'NASA 数据来源字典表（4 行）。bodies 通过 source_id / source_extra_id 指过来。';
+COMMENT ON COLUMN sources.id    IS
+  '来源短标识（主键）：factSheetMetric / sunFactSheet / moonFactSheet / jplSbdbHalley';
+COMMENT ON COLUMN sources.label IS
+  '给人看的来源名称，如 "NASA Planetary Fact Sheet (Metric)"';
+COMMENT ON COLUMN sources.url   IS
+  '来源页面地址，用于页脚"数据来源"链接与人工溯源核对';
+
+COMMENT ON TABLE bodies IS
+  '天体表（11 行：太阳 + 八大行星 + 月球 + 哈雷彗星）。数值列一律 numeric，理由见文件内注释。';
+
+-- ---- 身份 ----------------------------------------------------------------
+COMMENT ON COLUMN bodies.id      IS
+  '天体短标识（主键），与代码里的 id 一致。接口 /api/bodies/:id 直接使用，如 earth / moon / halley';
+COMMENT ON COLUMN bodies.name_zh IS
+  '中文名，如 "地球"';
+COMMENT ON COLUMN bodies.name_en IS
+  '英文名，如 "Earth"。唯一（uq_bodies_name_en）';
+COMMENT ON COLUMN bodies.type    IS
+  '天体类型，只有 4 种：star / planet / moon / comet（ck_bodies_type）';
+
+-- ---- 尺寸与轨道 ----------------------------------------------------------
+COMMENT ON COLUMN bodies.diameter_km IS
+  '直径（km）。太阳 1391400；哈雷 11.0 —— 有小数位，所以不能是 integer';
+COMMENT ON COLUMN bodies.distance_from_sun_km IS
+  '距太阳（km）。太阳为 0；哈雷远日点 2677801886 超出 int 上限 2147483647，故本列必须是 numeric';
+COMMENT ON COLUMN bodies.distance_raw IS
+  '距太阳的原始写法（给人看的），如 "≈149.6 × 10^6 km"。含 ≈ 和 × 10^6，存不进 numeric，只能 text';
+COMMENT ON COLUMN bodies.orbital_period_days IS
+  '公转周期（天）。太阳为 NULL —— 太阳是中心天体、没有轨道，NULL 表示"不适用"，不是 0';
+COMMENT ON COLUMN bodies.eccentricity IS
+  '轨道离心率，要求 0 ≤ e < 1。太阳为 NULL；哈雷 0.967 非常接近 1';
+
+-- ---- 相对地球（源数据里的 compareToEarth）--------------------------------
+COMMENT ON COLUMN bodies.ratio_diameter IS
+  '直径 ÷ 地球直径。地球本身为 1，木星 11.21';
+COMMENT ON COLUMN bodies.ratio_distance IS
+  '日距 ÷ 地球日距。太阳为 NULL';
+COMMENT ON COLUMN bodies.ratio_period IS
+  '公转周期 ÷ 地球周期。太阳为 NULL';
+
+-- ---- 外观 ----------------------------------------------------------------
+COMMENT ON COLUMN bodies.appearance_main_color IS
+  '主色，十六进制字符串（含 #），如 #3B7EC8';
+COMMENT ON COLUMN bodies.appearance_has_ring IS
+  '有没有行星环。木星、土星、天王星为真';
+COMMENT ON COLUMN bodies.appearance_note IS
+  '外观备注。只有太阳、哈雷有值';
+COMMENT ON COLUMN bodies.appearance_ring_note IS
+  '行星环说明。只有木星、土星、天王星有值';
+
+-- ---- 数据来源 ------------------------------------------------------------
+COMMENT ON COLUMN bodies.source_id IS
+  '主数据来源 → sources(id)。每个天体必有 —— "禁止虚构数据"这条规矩在表结构上的落地';
+COMMENT ON COLUMN bodies.source_extra_id IS
+  '附加数据来源 → sources(id)。只有月球有（双来源）';
+COMMENT ON COLUMN bodies.source_status IS
+  '数据状态：verified / unverified（ck_bodies_source_status）。当前 11 行全部 verified';
+
+-- ---- 月球专用 ------------------------------------------------------------
+COMMENT ON COLUMN bodies.parent_id IS
+  '母天体 → bodies(id)（自引用）。只有月球 = "earth"。自引用使 INSERT 顺序有讲究：地球必须先于月球';
+COMMENT ON COLUMN bodies.distance_from_parent_km IS
+  '距母天体（km）。只有月球有，384400';
+COMMENT ON COLUMN bodies.distance_from_parent_raw IS
+  '距母天体的原始写法。只有月球有';
+COMMENT ON COLUMN bodies.orbital_period_note IS
+  '公转周期备注。只有月球有，用来提醒"这是绕地球的周期，不是绕太阳的"';
+
+-- ---- 哈雷彗星专用 --------------------------------------------------------
+COMMENT ON COLUMN bodies.extent_raw IS
+  '三轴尺寸的原始写法。只有哈雷有';
+COMMENT ON COLUMN bodies.orbital_period_raw IS
+  '公转周期的原始写法。只有哈雷有';
+COMMENT ON COLUMN bodies.perihelion_au IS
+  '近日点（天文单位 au）。只有哈雷有';
+COMMENT ON COLUMN bodies.aphelion_au IS
+  '远日点（天文单位 au）。只有哈雷有';
+
+-- ---- 显示顺序 ------------------------------------------------------------
+COMMENT ON COLUMN bodies.sort_order IS
+  '图鉴显示顺序：1=太阳 … 11=哈雷彗星。唯一（uq_bodies_sort_order）';
+
 -- 刻意**不加**额外索引：两张表一共 15 行，主键和 UNIQUE 已经自带索引，
 -- 再加 type / source_id 的索引纯属浪费。等数据量真的大了再说。
 
