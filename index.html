@@ -244,6 +244,11 @@
 
   <script src="src/data/bodies.js"></script>
   <script src="src/fallback.js"></script>
+  <!-- Day 17 新增：取数层。图鉴通过 window.SolarApi.fetchBodies() 取数，
+       接口不通时它自己回退到上面那份静态数据。
+       排在 fallback.js 之后，是因为它会用到 window.showFallback；
+       但真正的调用都发生在 DOMContentLoaded 之后，两者没有严格的加载顺序依赖。 -->
+  <script src="src/api.js"></script>
   <!-- states.js 排在主图脚本之前：就算后面哪一个脚本报错，
        状态机也已经在跑，过渡屏仍能按时让路（PRD 5.3 不卡死）。 -->
   <script src="src/states.js"></script>

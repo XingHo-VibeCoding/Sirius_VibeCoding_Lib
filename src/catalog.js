@@ -25,13 +25,20 @@
 (function () {
   'use strict';
 
-  /* ---------- 模拟异步耗时 ----------
-   * 这一版的数据写死在 src/data/bodies.js 里，读它是"瞬间完成"的，
-   * 页面上一帧都看不到"加载中"。而 Day 8 要做的正是四种页面状态，
-   * 所以这里故意等一小会儿，让 loading 这个状态真的能被看见。
+  /* ---------- 最小"加载中"展示时长（Day 17 改过用途） ----------
+   * Day 17 之前，这段是**假装**在等：那时数据写死在 src/data/bodies.js 里，
+   * 读它是"瞬间完成"的，页面上一帧都看不到"加载中"。
+   * 为了让 Day 8 做的 loading 态真的能被看见，就故意等了 420ms。
    *
-   * 以后接真实接口时，只要把这段 setTimeout 换成真正的请求，
-   * 调用方的写法完全不用动 —— 这就是把所有等待都包进 Promise 的好处。 */
+   * Day 17 接了真接口（src/api.js）之后，等待变成真的了 ——
+   * 但同城请求可能只要几十毫秒，loading 仍然会一闪而过、肉眼看不见。
+   * 所以这个常量留下来，改当**下限**用：
+   *   比它快的补足到 420ms；真接口更慢时以真实耗时为准。
+   *
+   * ⚠️ 如实记下代价：这是**人为放慢**。之所以接受，是因为图鉴不是首屏
+   *    （首屏是过渡屏 + 探索视图），切过来时多等零点几秒、
+   *    换取"看得见正在加载"，比"闪一下就出结果"更像正常产品。
+   *    将来若嫌慢，删掉这个下限即可 —— 它不承担任何功能性职责。 */
   const LOAD_DELAY_MS = 420;
 
   /* 卡片上的类型标签。
@@ -107,16 +114,47 @@
    *   reject            → 错误
    * ============================================================ */
   function catalogBodies() {
+    /* Day 17：数据来源从"读内存"换成"问接口"。
+       调用方（fillCatalog / filter.js）的写法**一个字没改** ——
+       它们本来就只依赖"这是一个 Promise"，
+       这正是当初把它包成 Promise 的意义。
+
+       SolarApi 取不到接口时会自己兜底回页面自带的数据；
+       只有**云端和本地两边都空**才会 reject，那时才是真的错误态。 */
+    const fetcher =
+      window.SolarApi && typeof window.SolarApi.fetchBodies === 'function'
+        ? window.SolarApi.fetchBodies
+        : localBodies;
+
+    const started = Date.now();
+
+    return fetcher().then(function (list) {
+      /* 补足最小展示时长，让 loading 态不至于一闪而过
+         （理由见文件上方 LOAD_DELAY_MS 的说明）。 */
+      const left = LOAD_DELAY_MS - (Date.now() - started);
+      if (left <= 0) {
+        return list;
+      }
+      return new Promise(function (resolve) {
+        setTimeout(function () {
+          resolve(list);
+        }, left);
+      });
+    });
+  }
+
+  /* api.js 没加载出来时的退路（行为与 Day 17 之前完全一致）。
+     留着它是为了守住 TECH_DESIGN 第 6 节：
+     少一个脚本文件，也不该让图鉴变成白的。 */
+  function localBodies() {
     return new Promise(function (resolve, reject) {
-      setTimeout(function () {
-        const list = window.SOLAR_BODIES;
-        if (!list) {
-          reject(new Error('数据文件 src/data/bodies.js 没有加载成功'));
-          return;
-        }
-        // 交一份副本出去：就算调用方拿去排序、删元素，也不会动到原数据
-        resolve(list.slice());
-      }, LOAD_DELAY_MS);
+      const list = window.SOLAR_BODIES;
+      if (!list) {
+        reject(new Error('数据文件 src/data/bodies.js 没有加载成功'));
+        return;
+      }
+      // 交一份副本出去：就算调用方拿去排序、删元素，也不会动到原数据
+      resolve(list.slice());
     });
   }
 

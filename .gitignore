@@ -32,3 +32,14 @@ Desktop.ini
 # ⚠️ 注意：发布**本身不需要这个文件**，它是结果、不是前提。
 #     （发布的是仓库外那份只含运行文件的副本，见 USER_TEST.md 附节。）
 .wbapp_*.genie
+
+# 依赖包目录（Day 17 加）
+#
+# 云函数要装 @cloudbase/node-sdk 才能在云上跑，装出来就是 `cloudfunctions/api/node_modules`。
+# 它**不是我写的代码** —— 内容完全由 `package.json` 决定，
+# 谁 clone 下来跑一次 `npm install` 就能得到一模一样的一份。
+# 传上去只会让仓库变大、让 diff 变吵，而且换台机器 `npm install` 结果还可能不一样。
+#
+# ⚠️ 发布云端函数时**照常会把它一起打包上传**（那是部署，不是提交），
+#    所以这条只影响 Git，不影响云函数能不能跑。
+node_modules/

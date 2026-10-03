@@ -1,5 +1,5 @@
 {
-  "version": "2.0",
+  "version": "2.1",
   "envId": "solar-system-d3g10b341a8d66aa6",
   "functionRoot": "cloudfunctions",
   "functions": [
@@ -10,6 +10,21 @@
       "handler": "index.main",
       "description": "Day 15 探活接口：只回 { ok: true, service: \"solar System\" }，不连数据库、无依赖",
       "envVariables": {}
+    },
+    {
+      "name": "api",
+      "timeout": 10,
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "description": "Day 17 读接口：GET /api/bodies 与 GET /api/bodies/:id，从 PostgreSQL 读真实数据（走 node-sdk 的 PG 网关，不用 TCP 直连）",
+      "envVariables": {}
     }
-  ]
+  ],
+
+  "gateway": {
+    "routes": [
+      { "path": "/api/health", "target": "function:health" },
+      { "path": "/api/bodies", "target": "function:api" }
+    ]
+  }
 }
