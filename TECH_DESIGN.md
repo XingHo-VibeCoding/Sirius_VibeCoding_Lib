@@ -22,6 +22,7 @@
 | **v1.8** | **2026-10-01** | **Day 13 收尾：修两处历史记录缺陷**（实测发现，非推测）。新增**第 12.5 节「「返回」与地址栏的两条规矩」**：① 站内「← 返回」必须走 `history.back()`，**不能自己 `go(cameFrom)`** —— 后者会再压一条历史记录，用户点完「← 返回」再按浏览器后退键会弹回详情（乒乓）；② **地址栏永远反映当前视图** —— 空 hash / 认不出的路径兜底到探索时，用 `location.replace('#/explore')` 把地址一并补上。两处都用 `replace`，不新增记录。12.1 节同步补一句指向 |
 | **v1.9** | **2026-10-01** | **Day 13 余力加练：面包屑**。详情页顶部的「← 返回」按钮换成**面包屑**（`图鉴 › 土星`：第一段跟随来路、可点，第二段是当前天体）。新增**第 12.6 节**（来路规则 / 点击行为 / 手机端要 44×44 两个方向 / "没有来路时兜底从图鉴改成探索"这处行为变化），并在 12.5 规矩 A 前补一句迁移说明。⚠️ 面包屑第一段虽然写成 `<a>`，但 `router.js` 会**拦下左键点击、改走 `history.back()`** —— 否则 12.5 那条"不乒乓"的契约当场作废 |
 | **v1.10** | **2026-10-01** | **Day 14：用户测试后的最小修复**。① **12.3 节契约变更：三视图 × 四态从 12 格改为 11 格** —— 详情页的 loading 从"常规状态"降级为**兜底态**（第 4 条修正，**推翻了 v1.7 里的第 3 条**）。原因是那 0.3 秒等待是**演出来的**：点星后内容还没出来、那里却摆着一句「正在读取这个天体的资料…」，用户以为没点到、手指又点一下 → 落到刚冒出来的面包屑上被退回上一层（同伴原话「点行星不准，出现的是上一个」）。修法：`renderBody()` 直接 `showBody()`。② 同节记下验收脚本的同步改动与**"只记录、不断言，覆盖表就会撒谎"**这条教训。③ `main.css` 的 `body` 去掉 `justify-content: center`（内容比视口矮时整页垂直居中 → 页面自己动） |
+| **v1.11** | **2026-10-05** | **Day 19：后端分层重构（接口层 / 数据访问层分开）**。① **新增第 13 节「后端分层结构」**——记云函数 `api` 的四层划分、分层判据、目录结构、以及"哪些代码**不搬**及为什么"。② 第 2 节项目结构**补录 `cloudfunctions/` 两个函数与 `repositories/` 三件套**，同时补录此前遗漏的 `api-contract.md` / `USER_TEST.md` / `cloudbaserc.json` / `db/` / `src/api.js` / `src/router.js` / `src/filter.js`。③ 🔴 **修正第 3 节开头与第 4 节开头的两处陈旧表述**——它们还写着「本项目**没有数据库**」「本项目是纯前端静态页，**没有对外 API**」，那是 Day 5 写的，Day 15 起就都不成立了。**这类"文档比代码旧"的句子比缺失更危险：它会让人按错误的前提做决定。**④ 本节只描述**结构与位置**，接口形状一律以 `api-contract.md`（v0.4.1）为准，**不在这里重复**（避免两处各写一份、日后漂移） |
 
 ---
 
@@ -113,12 +114,16 @@ Sirius_VibeCoding_Lib/
 ├── research.md               需求研究（Day 3）
 ├── PRD.md                    产品需求文档（Day 4）
 ├── TECH_DESIGN.md            本文档（Day 5）
+├── api-contract.md           接口契约（Day 15；v0.4.1）★ 接口形状的唯一依据
+├── USER_TEST.md              真机测试记录（Day 14）
+├── cloudbaserc.json          CloudBase 配置：云函数清单 + 网关路由（Day 15）
 ├── index.html                ← 唯一入口页面
 ├── .gitignore
 │
 ├── src/
 │   ├── data/
-│   │   └── bodies.js         全部天体数据 + 来源标注（唯一数据源）
+│   │   └── bodies.js         天体数据 + 来源标注（**Day 17 起降级为静态兜底**，见 3 节）
+│   ├── api.js                取数层：调后端接口，拿不到回落静态数据（Day 17）
 │   ├── router.js             hash 路由：路径 ↔ 视图的换算、切换与返回（Day 13）
 │   ├── states.js             页面状态机：加载中 / 成功 / 空 / 错误（Day 8）
 │   ├── scene2d.js            2D 主图：画轨道与天体、处理点击与缩放平移
@@ -128,6 +133,19 @@ Sirius_VibeCoding_Lib/
 │   ├── controls.js           调控区：时间流速 / 尺度切换 / 教学对比
 │   ├── guide.js              引导主线：12 站的推进与文案（⚠️ 规划中，尚未实现）
 │   └── fallback.js           错误兜底：加载失败与不支持环境时的提示
+│
+├── cloudfunctions/           云函数（**Day 15 起有后端了**，见第 13 节）
+│   ├── health/index.js       探活接口（Day 15）
+│   └── api/                  ★ 主接口：读（Day 17）写（Day 18）· **Day 19 分层**
+│       ├── index.js          **接口层**：接请求 → 调 repository → 塑形 → 返响应
+│       └── repositories/     **数据访问层**：所有数据库操作集中在此
+│           ├── db.js                 建实例（唯一一处）
+│           ├── bodiesRepository.js   天体表 listAll / existsById / findById
+│           ├── sourcesRepository.js  来源表 urlMap
+│           └── observationsRepository.js  观测记录表 insert
+│
+├── db/                       PostgreSQL 建表与种子（Day 16）
+│   ├── schema.sql / seed.sql / gen-seed.mjs
 │
 ├── styles/
 │   └── main.css              全部样式
@@ -140,15 +158,19 @@ Sirius_VibeCoding_Lib/
 │       └── catalog-filter-guard/   筛选交互的检查 Skill（Day 12；**项目产物**，随代码一起提交）
 │
 └── assets/
-    └── flow-data.svg         ← 数据流图（板块③ 产出）
+    ├── flow-data.svg         ← 数据流图（板块③ 产出）
+    └── layers-api.svg        ← 后端分层结构图（Day 19 余力加练产出）
 ```
 
 ---
 
 ## 3. 数据对象及字段
 
-> 本项目**没有数据库**。这里定义的"数据对象"是指**项目里的数据结构**。
-> 全部数据集中在 `src/data/bodies.js`，是唯一数据源。
+> ⚠️ **这一节写于 Day 5，当时本项目还是纯静态页 —— 那个前提 Day 15 起就不成立了。**
+> 现在：天体数据的**权威来源**是云端的 PostgreSQL（3 张表，见 `api-contract.md` 第四节），
+> `src/data/bodies.js` 从"唯一数据源"变成**静态兜底数据源**（接口拿不到时页面用它顶上，见 `src/api.js`）。
+> 那边是 `snake_case` 列名、这边是 `camelCase` 字段名，两边的映射表在**契约 4.7**，不在本文档重复。
+> ↓ 下面这段保留的是**前端数据对象**的形状，它仍然有效（页面渲染层读的就是这个形状）。
 
 ### 3.1 天体对象（`SolarBody`）
 
@@ -189,8 +211,10 @@ Sirius_VibeCoding_Lib/
 
 ## 4. 内部模块接口（替代模板里的「API 列表」）
 
-> **说明**：本项目是纯前端静态页，**没有对外 API**，也不调用任何外部数据接口（PRD 第 7 节：不引入星历）。
-> 模板要求的「API 列表」在这里对应的真实内容是——**前端模块之间的接口契约**。
+> ⚠️ **这一节写于 Day 5，其中"没有对外 API"这句 Day 15 起就不成立了。**
+> 现在有 3 个真接口（`GET /api/health`、`GET /api/bodies`、`POST /api/observations`），
+> **形状以 `api-contract.md` 为准**（v0.4.1），本文档不重复。
+> 本节保留的是**前端模块之间**的接口契约 —— 它仍然有效，且是前端唯一的模块交互依据。
 
 | 模块 | 文件 | 暴露的接口 | 作用 |
 |---|---|---|---|
@@ -569,11 +593,95 @@ flowchart TD
 
 ---
 
+## 13. 后端分层结构（Day 19 新增）
+
+> **一句话**：云函数 `api` 拆成**接口层**和**数据访问层**，
+> 所有知道数据库表名和列名的代码集中在 `repositories/` 里，
+> `index.js` 退化成"翻译 + 调度"——**它一个 `db.` 都不出现**。
+
+![后端分层结构图：接口层（index.js）→ 数据访问层（repositories/）→ db.js → PostgreSQL；全图围绕一条判据展开——"这段代码知不知道数据库的表名和列名"](assets/layers-api.svg)
+
+> 图另存为独立文件 **`assets/layers-api.svg`**，可单独打开查看。
+
+### 13.1 分层判据（只有一条）
+
+⭐ **这段代码知不知道数据库的表名和列名？**
+
+| | 知道表名/列名（写着 `'bodies'`、`'sort_order'`） | 不知道，只认接口字段（`nameZh`、`bodyId`） |
+|---|---|---|
+| **归哪层** | 数据访问层 | 接口层 |
+| **放哪** | `cloudfunctions/api/repositories/` | `cloudfunctions/api/index.js` |
+
+⚠️ **判据不是"看起来像什么"，而是"知不知道数据从哪来"。** 两个反例：
+
+- `toDetail()` 里写着 `row.diameter_km` —— **出现了列名**，但它不知道 `row` 是谁给的 ⇒ **接口层**
+- `isDuplicateError()` 读的是 `err.code` 里的 `23505`（PostgreSQL 的 SQLSTATE）—— **读的是数据库的东西**，但它要产出的是**一句给用户看的中文** ⇒ **接口层**
+
+⇒ 后一个是本次重构**最容易搬错**的一处：**判据看"它服务谁"，不是"它读了什么"。**
+
+### 13.2 四层各管什么
+
+| 层 | 管什么 | 落在哪 |
+|---|---|---|
+| **接请求** | HTTP 那套东西翻译成普通变量：`query` / `body` / `method` / `path` | `index.js`（`parseQuery` / `readJsonBody` / `getMethod` / `resolveRequest`） |
+| **数据访问** | 查什么表、按什么排序、取哪几列、插入什么 | `repositories/*.js` |
+| **塑形** | `snake_case` 列 → `camelCase` 接口字段 | `index.js`（`toListItem` / `toDetail` / `num` / `bool` / `isoUtc`） |
+| **返响应** | 包信封、错误码与中文文案 | `index.js`（`ok` / `fail` / `errNotFound` / `isDuplicateError`） |
+
+另外**校验**（`validateObservation`）和**业务约定的 id 生成**（`uuidv4`）也留在接口层 ——
+它们校验的是**接口字段**、生成的是**接口要回吐的值**，都不是数据库的知识。
+
+### 13.3 目录结构与导出
+
+```
+cloudfunctions/api/
+├── index.js                          接口层（一个 db. 都不出现）
+└── repositories/
+    ├── db.js                         建数据库连接实例（唯一一处；含 API Key 身份说明）
+    ├── bodiesRepository.js           listAll() / existsById(id) / findById(id)
+    ├── sourcesRepository.js          urlMap()
+    └── observationsRepository.js     insert(row)
+```
+
+**三条设计决定（都是踩过才知道的）：**
+
+| 决定 | 为什么 |
+|---|---|
+| **`db.js` 单独一个文件**，而不是留在 `index.js` 里传参给 repository | 留在 `index.js` 的话，那里就会有**一段纯粹连数据库的代码**，与"接口只留接请求/调函数/返响应"冲突 |
+| **不让每个 repository 自己 `init()`** | 那样会建出 **4 个客户端实例**，而且"未配置 API Key"那句警告会**打印 4 遍**，排查时看不出真话。<br>⚠️ 实测证据：重构后 `require('@cloudbase/node-sdk')` **只被调用 1 次**、`init` **1 次**、`rdb` 收到的参数仍是 `{"database":"public"}` |
+| **repository 抛异常，不返回错误对象** | `index.js` 里 `exports.main` 的 `catch` 是契约 1.4「真实原因只进日志、公网只回固定文案」的**唯一出口**。repository 抛 → main 接，只有一个地方决定"给用户看什么"<br>⚠️ **例外**：`observationsRepository.insert()` 把**原始 error 对象**带在 `e.cause` 上抛出 —— 因为 `index.js` 需要它才能认 `23505`（重复），抛新 Error 会把 code 埋进 message 里、判据就取不到了 |
+
+### 13.4 一次请求怎么走（以 `GET /api/bodies?id=moon` 为例）
+
+```
+index.js    ① resolveRequest() 判定 kind = 'detail', id = 'moon'
+            ② bodiesRepository.findById('moon')
+repositories    └→ db.from('bodies').select('*').eq('id','moon').limit(1)
+index.js    ③ 拿到 null → errNotFound；拿到行 → 继续
+            ④ sourcesRepository.urlMap()
+index.js    ⑤ toDetail(row, srcUrls)   塑形
+            ⑥ ok(data)                 返响应
+```
+
+**左边 6 步里，查库 0 次** —— 这就是"接口只保留接请求、调函数、返响应"的字面含义。
+
+### 13.5 这次重构**没有**改的东西（同样重要）
+
+| 没改 | 说明 |
+|---|---|
+| **接口形状** | `api-contract.md`（v0.4.1）一个字没动。重构后 13 条命令的输出与重构前**逐字节一致**（`diff` 无差异） |
+| **数据库结构** | 三张表、20 条约束全部原样。重构只是**换了个地方写查询**，没动一行 DDL |
+| **`resolveRequest()` 的四种写法分流** | 这是 Day 17 定下的门禁逻辑（`?id=` 空值报 `BAD_REQUEST`、完全不给 `id` 返回列表），属接口层职责，原样保留 |
+| **`isDuplicateError()`** | 留在 `index.js`（理由见 13.1） |
+| **前端** | 一行没动。图鉴仍走接口，实测 11 张卡片、顺序与颜色与接口返回逐条对应 |
+
+---
+
 ## 附：与 PRD 的一致性核对
 
 | PRD 要求 | 本文档对应 |
 |---|---|
-| 第 7 节：本期不做后端 / 数据库 / 账号 / 上传分享 | 第 0、1.2 节：纯静态页，无后端无数据库 |
+| 第 7 节：本期不做后端 / 数据库 / 账号 / 上传分享 | 第 0、1.2 节：**Day 5 时**是纯静态页。⚠️ **Day 15 起已加后端**（云函数 + PostgreSQL），这是课程要求的"走通三层结构"，见第 13 节与 `api-contract.md` |
 | 第 5.3 节：不出现白屏；浏览器兼容底线 | 第 6 节：错误处理总原则；第 1.3 节：库放本地 |
 | 第 6 节 V1：3 秒内看到画面 | 第 1.3 节：3D 按需加载 |
 | 第 6 节 V3：3D 有立体感、可旋转 | 第 1.1 节：Three.js；第 1.3 节：不用 CSS 3D 的理由 |

@@ -85,14 +85,20 @@ VibeCoding/
 ├── research.md             需求研究（Day 3）
 ├── PRD.md                  产品需求文档（Day 4）
 ├── TECH_DESIGN.md          技术设计文档（Day 5）
+├── api-contract.md         接口契约（Day 15 起；v0.4.1）
+├── USER_TEST.md            真机测试记录（Day 14）
+├── cloudbaserc.json        CloudBase 配置：云函数清单 + 网关路由（Day 15）
 ├── README.md               本文件
 │
 ├── src/
 │   ├── data/
-│   │   └── bodies.js       全部天体数据 + 来源标注（唯一数据源）
+│   │   └── bodies.js       全部天体数据 + 来源标注（静态兜底数据源）
+│   ├── api.js              取数层：调后端接口，拿不到时回落到上面的静态数据（Day 17）
 │   ├── states.js           页面状态机（加载中 / 成功 / 空 / 错误）
+│   ├── router.js           hash 路由：路径 ↔ 视图（Day 13）
 │   ├── scene2d.js          2D 主图 + 点击 + 资料卡
 │   ├── catalog.js          天体目录（11 张卡片，点卡片 = 点天体）
+│   ├── filter.js           目录筛选：类型按钮 + 搜索框（Day 12）
 │   ├── controls.js         调控区（时间流速 / 轨道比例 / 教学对比）
 │   ├── focus3d.js          3D 聚焦（按需加载 Three.js）
 │   └── fallback.js         错误兜底（任何一块坏掉都不白屏）
@@ -100,12 +106,36 @@ VibeCoding/
 ├── styles/
 │   └── main.css            全部样式
 │
+├── cloudfunctions/         云函数（后端）
+│   ├── health/
+│   │   └── index.js        探活接口：只回一句「我活着」，不连数据库（Day 15）
+│   └── api/                主接口函数（Day 17 读 · Day 18 写 · **Day 19 分层重构**）
+│       ├── index.js        **接口层**：接请求 → 调 repository → 塑形 → 返响应
+│       ├── repositories/   **数据访问层**：所有数据库操作集中在这里
+│       │   ├── db.js                 建数据库连接实例（全项目唯一一处）
+│       │   ├── bodiesRepository.js   天体表：listAll / existsById / findById
+│       │   ├── sourcesRepository.js  来源表：urlMap
+│       │   └── observationsRepository.js  观测记录表：insert
+│       ├── package.json
+│       └── node_modules/   （不上传，见 .gitignore）
+│
+├── db/                     数据库（PostgreSQL，Day 16）
+│   ├── schema.sql          建表 + 约束 + 字段注释
+│   ├── seed.sql            种子数据（自包含，可重复执行）
+│   └── gen-seed.mjs        生成 seed.sql 的工具（实跑 bodies.js 取值）
+│
 ├── vendor/
 │   └── three.min.js        Three.js r128（本地文件，不从 CDN 引）
 │
 └── assets/
     └── flow-data.svg       数据流图
 ```
+
+> **后端为什么分两个目录**（Day 19 重构）：
+> `index.js` **不认识数据库** —— 它只做「把 HTTP 请求翻译成普通变量 → 调用 repository → 把结果整形成接口字段 → 包上信封返回」。
+> 所有知道表名和列名的代码都在 `repositories/` 里。
+> 判据是一句话：**这段代码知不知道数据库的表名和列名？** 知道 → 数据访问层；不知道、只认接口字段 → 接口层。
+> 好处很实在：换一张表、加一个字段，只动 `repositories/` 里那一个文件，接口逻辑一行都不用碰。
 
 ---
 

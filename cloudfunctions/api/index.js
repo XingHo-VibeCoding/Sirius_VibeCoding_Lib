@@ -1,5 +1,5 @@
 /**
- * 云函数 api —— Day 17 读接口 + Day 18 写接口
+ * 云函数 api —— Day 17 读接口 + Day 18 写接口 + **Day 19 分层重构**
  * ============================================================
  * 负责两个 GET 和一个 POST：
  *   GET  /api/bodies?id=<id>   单个天体详情
@@ -8,6 +8,31 @@
  *   POST /api/observations     新增一条观测记录（Day 18）
  *                              请求体是 JSON：bodyId / observedOn / status / note
  *                              详情见契约 3.4
+ *
+ * 【Day 19 重构：这个文件现在是**纯接口层**】
+ *   原先的 737 行里混着四类东西：接请求 / 查数据库 / 字段塑形 / 校验。
+ *   今天按一条判据把它们切开 ——
+ *
+ *     ⭐「这段代码**知不知道数据库的表名和列名**？」
+ *         知道 → 数据访问层（搬去 repositories/）
+ *         不知道、只认接口字段（nameZh / bodyId 这种）→ 接口层（留在这里）
+ *
+ *   搬走的：5 处 `db.from(...)` + `init/rdb` 那 5 行 → `repositories/`
+ *   留下的：请求解析、字段塑形（toListItem/toDetail）、校验（validateObservation）、
+ *            id 生成（uuidv4）、重复判据翻译（isDuplicateError）
+ *
+ *   ⇒ **本文件里现在一个 `db.` 都不出现**（验证方法：`grep -n "db\." index.js` → 0 命中）。
+ *     这行注释就是"查数据库那段代码从哪移到了哪"的答案本身。
+ *
+ * 【一条容易搞错的边界，写在最前面免得被误搬】
+ *   `isDuplicateError()` 读的是 `err.code` 里的 `23505`（那是 PostgreSQL 的 SQLSTATE），
+ *   看着像数据访问 —— 但它要产出的是**一句给用户看的中文**
+ *   （「该天体在 X 已有观测记录，同一天只能记一条。」）。
+ *   判据看的是「它服务谁」，不是「它读了什么」⇒ 它属**返响应**，留在本文件。
+ *
+ * 【只增删代码位置，不改任何接口行为】
+ *   重构后 3 个接口的**响应形状逐字节不变**（契约 v0.4.1 是判据）。
+ *   验证方式：13 条命令的重构前/后输出 diff（探针目录 regress-api.cjs）。
  *
  * ⚠️ 详情接口用 **query 参数 `?id=`**，不是路径参数 `/:id`（Day 17 实测后改的）：
  *    CloudBase HTTP 网关**不支持通配符**（`wildcard /* is not supported`），
@@ -43,53 +68,20 @@
  */
 
 const crypto = require('crypto');
-const cloudbase = require('@cloudbase/node-sdk');
 
 /* ------------------------------------------------------------------
- * 🔴 连数据库的**身份**：必须是 service_role，不能是 anon
+ * 🔴 Day 19：连数据库的代码**已经整体搬走**
  *
- * Day 18 实测：写接口第一次上云就 500 ——
- *   `写 observations 失败：permission denied for table observations`
- * 而同一个函数读 bodies 一路正常。原因：
- *   `app.rdb()` 默认用云函数自带凭证换 token，网关解析出的角色是 **anon**，
- *   而 anon 在我们三张表上**只有 SELECT** ⇒ 能读、不能写。
- *   （`cloudbase_authenticator` 是 NOINHERIT，纯粹按 JWT 里的 role 字段 SET ROLE。）
+ * 原来这里有一段 45 行的注释 + `init` + `rdb`，解释"为什么用 service_role、
+ * 为什么必须传 { database: 'public' }"。那些解释**没有删**，只是跟着代码
+ * 一起搬到了 `repositories/db.js`（注释跟着代码走，不能留在原地下蛋）。
  *
- * 官方《PG：身份认证》给的答案 —— 三个应用角色，各有唯一来源：
- *   anon          ← Publishable Key（可安全嵌入前端）
- *   authenticated ← 用户登录后的 Access Token
- *   service_role  ← **API Key**（不过期 · BYPASSRLS · 严禁前端）
- * 且文档给云函数的**方式二**就是"用 API Key、通过**环境变量**注入"。
- *
- * SDK 里本来就有这个口子：
- *   getClientCredential() 开头是「有 accessKey 就直接返回」，
- *   请求头拼装是「有 accessKey 就优先用 API Key」
- * ⇒ 传个 accessKey 就行，**数据访问代码一行都不用改**。
- *
- * ⚠️ 这个值**绝不能进仓库**：只存在云函数的「环境变量」里（控制台或 `tcb config`）。
- *    本地跑单测时它是 undefined，行为与加它之前**完全一致**（退回 anon，只读）。
+ * 本文件现在只 require 三个 repository，拿到的是**业务方法**（findById / urlMap / insert），
+ * 而不是数据库连接 —— 接口层不需要、也不应该拿到连接。
  * ------------------------------------------------------------------ */
-const API_KEY = process.env.CLOUDBASE_APIKEY;
-if (!API_KEY) {
-  /* ⚠️ 用 console.log 而不是 console.warn：实测云函数的「调用日志」里
-     warn 级别不显示，只有 log / error 会出来 —— 这行看不见就等于没写。 */
-  console.log(
-    '[api][warn] 未配置 CLOUDBASE_APIKEY：读接口仍可用（anon 有 SELECT），' +
-      '但 POST 写接口会因权限被拒（permission denied, SQLSTATE 42501）。'
-  );
-}
-
-const app = cloudbase.init({ env: cloudbase.SYMBOL_CURRENT_ENV, accessKey: API_KEY });
-
-/* 放模块顶层：云函数实例会被复用，不每次调用都新建客户端
- *
- * ⚠️ 必须显式指定 schema = public（Day 17 实测踩到的坑）：
- *    app.rdb() 的默认值是 `database = envId`，也就是会把
- *    Accept-Profile / Content-Profile 设成**环境 ID**
- *    （solar-system-d3g10b341a8d66aa6）。而我们的两张表建在 **public** schema 下，
- *    于是网关直接回 "Invalid schema: solar-system-d3g10b341a8d66aa6"。
- *    传 { database: 'public' } 就好了。 */
-const db = app.rdb({ database: 'public' });
+const bodiesRepo = require('./repositories/bodiesRepository');
+const sourcesRepo = require('./repositories/sourcesRepository');
+const observationsRepo = require('./repositories/observationsRepository');
 
 /* ------------------------------------------------------------------
  * 响应信封（契约 1.2）—— 所有出口都必须走这两个函数，不许手写对象
@@ -175,26 +167,13 @@ function resolveRequest(event, query) {
 }
 
 /* ------------------------------------------------------------------
- * 读数据库
+ * 数据访问：**已搬到 repositories/**（Day 19）
+ *
+ * 这里原本有两个函数：
+ *   · loadBodies()        → 现在是 bodiesRepo.listAll()
+ *   · loadSourceUrls()    → 现在是 sourcesRepo.urlMap()（连内存映射一起搬走）
+ * ⇒ 已删除，调用点见下面的 dispatch()。
  * ------------------------------------------------------------------ */
-
-async function loadBodies() {
-  const res = await db.from('bodies').select('*').order('sort_order', { ascending: true });
-  if (res.error) throw new Error('读 bodies 失败：' + describe(res.error));
-  return res.data || [];
-}
-
-/* 字典表只有 4 行 —— 一次读全，在内存里做「编号 → 网址」的映射。
-   比逐行做外键嵌套查询直白得多，而 4 行的成本是零。 */
-async function loadSourceUrls() {
-  const res = await db.from('sources').select('id, url');
-  if (res.error) throw new Error('读 sources 失败：' + describe(res.error));
-  const map = {};
-  (res.data || []).forEach(function (r) {
-    map[r.id] = r.url;
-  });
-  return map;
-}
 
 /* ------------------------------------------------------------------
  * 表列 → 接口字段（依据契约 4.7 的映射表）
@@ -589,14 +568,19 @@ async function createObservation(event) {
 
   /* ---- ⑥ bodyId 必须指向一个真天体 ----
      ⚠️ 查不到给 BAD_REQUEST 而**不是** NOT_FOUND：URI 是合法的，
-        错在"请求体里引用了一个不存在的天体"，属于参数不合法（契约 3.4.2 有争论记录）。 */
-  const look = await db.from('bodies').select('id').eq('id', input.bodyId).limit(1);
-  if (look.error) throw new Error('读 bodies 失败：' + describe(look.error));
-  if (!(look.data || []).length) {
+        错在"请求体里引用了一个不存在的天体"，属于参数不合法（契约 3.4.2 有争论记录）。
+     Day 19：查库那行搬去 bodiesRepository.existsById()，这里只留**判断与报错**——
+        "在不在"是数据库的知识，"在不在该报什么错"是接口层的决定。 */
+  const exists = await bodiesRepo.existsById(input.bodyId);
+  if (!exists) {
     return errBadRequest('没有找到 id 为 ' + input.bodyId + ' 的天体，bodyId 必须是 bodies 表里已有的 id。');
   }
 
-  /* ---- ⑦ 插入 ---- */
+  /* ---- ⑦ 插入 ----
+     ⚠️ 组装 row 这一步**留在接口层**（Day 19 分层判据）：
+        因为这里在做 camelCase → snake_case 的翻译（bodyId → body_id），
+        而"接口字段叫什么"是接口层的知识，不是数据库的知识。
+        repository 只负责"把这行塞进去、把落库的那行还回来"。 */
   const row = {
     id: uuidv4(),                 /* 表上这一列没有 DEFAULT，必须自己给 */
     body_id: input.bodyId,        /* camelCase → snake_case，依据契约 4.7 */
@@ -606,36 +590,32 @@ async function createObservation(event) {
   if (input.note !== null) row.note = input.note; /* 不给 note 就让它是 NULL，别塞空串 */
   /* created_at 不传：由数据库 DEFAULT now() 生成，**不信任客户端时间** */
 
-  /* ⚠️ 全部走 .insert(对象)：值由平台做参数绑定，**不拼 SQL 字符串**
-     （清单明确要求"SQL 参数化"，与读接口的 .eq() 同一个道理）。
-     .select() 会带上 Prefer: return=representation —— 让数据库把**真正落库的那一行**回给我们，
-     而不是由前端自己猜。 */
-  const res = await db
-    .from('observations')
-    .insert(row)
-    .select('id,body_id,observed_on,status,note,created_at');
+  /* Day 19：insert 那 4 行搬去 observationsRepository.insert()。
+     ⚠️ 那个函数**故意不认重复**、只把原始错误对象抛出来（带在 `e.cause` 上），
+        因为下面这段"认 23505 → 翻译成中文"是**返响应**的事，不是数据访问的事。 */
+  let saved;
+  try {
+    saved = await observationsRepo.insert(row);
+  } catch (e) {
+    const raw = e.cause || e; /* 取回 SDK 的原始 error 对象（含 code / message / details） */
 
-  if (res.error) {
     /* 重复：由唯一约束兜底，这里只做翻译 */
-    if (isDuplicateError(res.error)) return errDuplicate(input.observedOn);
+    if (isDuplicateError(raw)) return errDuplicate(input.observedOn);
 
     /* ⚠️ 日志里必须带上 `code`（PG 的 SQLSTATE）：
        describe() 只取 message，而权限类错误的 message 只有一句
        "permission denied for table observations" —— 看不出**是谁**没权限、为什么。
        42501 就是 Day 18 真踩的那个坑（云函数身份还是 anon、没配 API Key）。 */
-    const code = String(res.error.code || '');
+    const code = String(raw.code || '');
     const hint =
       code.indexOf('42501') !== -1
         ? '（42501 = 权限不足：多半是云函数没配 CLOUDBASE_APIKEY，连库身份还是 anon）'
         : '';
     throw new Error(
-      '写 observations 失败：' + describe(res.error) + '（code=' + (code || '-') + '）' + hint
+      '写 observations 失败：' + describe(raw) + '（code=' + (code || '-') + '）' + hint
     );
   }
 
-  /* insert + return=representation 回来的是**数组**（PostgREST 的形状），取第一条。
-     兜一层"万一直接给了对象"，免得因为形状差异整条接口挂掉。 */
-  const saved = Array.isArray(res.data) ? res.data[0] : res.data;
   if (!saved) throw new Error('写 observations 后没有拿到回吐的行。');
 
   /* 回吐的 6 个字段**固定都在**（含 note 为 null）——
@@ -710,20 +690,19 @@ async function dispatch(event, method, path) {
     /* ---- 详情：GET /api/bodies?id=<id> ---- */
     if (req.kind === 'detail') {
       const id = req.id;
-      /* ⚠️ 参数化查询：id 的值通过 .eq() 交给平台做参数绑定，
-         不会拼进 SQL 字符串（清单明确要求"SQL 参数化"）。 */
-      const res = await db.from('bodies').select('*').eq('id', id).limit(1);
-      if (res.error) throw new Error('读 bodies 失败：' + describe(res.error));
 
-      const rows = res.data || [];
-      if (!rows.length) return errNotFound(id);
+      /* Day 19：查库那 3 行搬去 bodiesRepository.findById()。
+         ⚠️ 它返回 null（不是抛异常）—— "库里没这个天体"是正常结果，
+            对应契约 3.2 的 NOT_FOUND，由下面这行翻译成中文提示。 */
+      const row = await bodiesRepo.findById(id);
+      if (!row) return errNotFound(id);
 
-      const srcUrls = await loadSourceUrls();
-      return ok(toDetail(rows[0], srcUrls));
+      const srcUrls = await sourcesRepo.urlMap();
+      return ok(toDetail(row, srcUrls));
     }
 
     /* ---- 列表：GET /api/bodies ---- */
-    const rows = await loadBodies();
+    const rows = await bodiesRepo.listAll();
     const filtered = applyFilter(rows, query);
 
     const lim = parseLimit(query);
