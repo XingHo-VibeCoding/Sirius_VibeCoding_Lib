@@ -53,20 +53,35 @@ const schemaSrc = fs.readFileSync(schemaPath, 'utf8');
 // ⚠️ 起点必须锚在**行首**的 DROP 语句上 ——
 //    不能用 indexOf('DROP TABLE IF EXISTS')，因为这个词在 schema.sql 的注释正文里也出现过
 //    （"开头先 DROP TABLE IF EXISTS，所以这份脚本跑几次都不会报错"），会从注释中间切开。
+// ⚠️ Day 18 修：只锚"**行首的 DROP TABLE IF EXISTS**"，而**不写表名**。
+//    原来写死的是 bodies，Day 18 加第 3 张表（observations）时就必须回来改 —— 属于白踩一次。
 const MARK = '--  自检：';
-const startMatch = /^DROP TABLE IF EXISTS bodies/m.exec(schemaSrc);
+const startMatch = /^DROP TABLE IF EXISTS /m.exec(schemaSrc);
 const markIdx = schemaSrc.indexOf(MARK);
-if (!startMatch) throw new Error('在 schema.sql 里找不到行首的 "DROP TABLE IF EXISTS bodies"');
+if (!startMatch) throw new Error('在 schema.sql 里找不到行首的 "DROP TABLE IF EXISTS"');
 const startIdx = startMatch.index;
 if (markIdx < 0 || markIdx <= startIdx) throw new Error(`在 schema.sql 里找不到自检段标记 "${MARK}"`);
 let ddl = schemaSrc.slice(startIdx, markIdx).replace(/\n-- -+\n\s*$/, '\n').trimEnd() + '\n';
 
 // 兜底断言：缺了就必须报错，不许生成一个残缺的种子文件
-for (const t of ['CREATE TABLE sources', 'CREATE TABLE bodies']) {
+// ⚠️ **加表时必须同步加这里** —— 它防的是"抽取范围悄悄少了一张表"这种最坏的假通过。
+for (const t of ['CREATE TABLE sources', 'CREATE TABLE bodies', 'CREATE TABLE observations']) {
   if (!ddl.includes(t)) throw new Error(`抽取出的建表段缺少 "${t}"，拒绝生成`);
 }
-if (!ddl.startsWith('DROP TABLE IF EXISTS bodies')) throw new Error('抽取起点不对：ddl 不是以 DROP 语句开头');
+if (!ddl.startsWith('DROP TABLE IF EXISTS ')) throw new Error('抽取起点不对：ddl 不是以 DROP 语句开头');
 if (ddl.includes('db/schema.sql —— 建表脚本')) throw new Error('抽取起点选错：把 schema.sql 的头部注释也抄进来了');
+
+// Day 18 新增断言：**三张表的 DROP 都必须排在第一个 CREATE 之前**。
+// 防的是有人把某张表的 DROP 挪到 CREATE 后面 —— 那样 seed.sql 重跑会撞 "already exists"。
+{
+  const firstCreate = ddl.indexOf('CREATE TABLE');
+  const beforeFirstCreate = firstCreate < 0 ? '' : ddl.slice(0, firstCreate);
+  for (const t of ['observations', 'bodies', 'sources']) {
+    if (!new RegExp(`^DROP TABLE IF EXISTS ${t}\\b`, 'm').test(beforeFirstCreate)) {
+      throw new Error(`"DROP TABLE IF EXISTS ${t}" 没有出现在第一个 CREATE TABLE 之前，拒绝生成`);
+    }
+  }
+}
 
 // ---------- 3. SQL 字面量 --------------------------------------------------
 const q = (s) => `'${String(s).replace(/'/g, "''")}'`;
@@ -149,9 +164,14 @@ const bodyRows = BODIES.map((b, i) => {
 
 // ---------- 6. 输出（不带时间戳 ⇒ 同样输入跑两次产物逐字节相同）------------
 const out = `-- ============================================================================
---  db/seed.sql —— 种子数据（Day 16）
+--  db/seed.sql —— 种子数据（Day 16 建；Day 18 加第 3 张表）
 --  环境：腾讯云 CloudBase · PostgreSQL
---  内容：sources 4 行 + bodies 11 行，共 15 行**真实数据**
+--  内容：sources 4 行 + bodies 11 行（共 15 行**真实数据**）
+--        + observations —— **只建表，不插数据（0 行）**
+--
+--  ⚠️ 为什么 observations 一行都不插？
+--     它是"**用户产出的数据**"，内容只能由 POST /api/observations 写出来（Day 18）。
+--     给它编种子数据 = 编造用户记录。空表起步正好当第 4 步验证的对照。
 --
 --  ⚠️ 本文件是**生成出来的**，不要手改 —— 手改会在下次重新生成时被覆盖。
 --     重新生成： node db/gen-seed.mjs
@@ -202,11 +222,13 @@ ${bodyRows.join(',\n')};
 
 
 -- ----------------------------------------------------------------------------
---  自检：跑完立刻确认行数（应回 sources 4 / bodies 11）
+--  自检：跑完立刻确认行数（应回 bodies 11 / observations 0 / sources 4）
 -- ----------------------------------------------------------------------------
 SELECT 'sources' AS tbl, count(*) AS n_rows FROM sources
 UNION ALL
-SELECT 'bodies', count(*) FROM bodies;
+SELECT 'bodies', count(*) FROM bodies
+UNION ALL
+SELECT 'observations', count(*) FROM observations;
 `;
 
 fs.mkdirSync(path.dirname(OUT), { recursive: true });
@@ -215,6 +237,7 @@ fs.writeFileSync(OUT, out, 'utf8');
 console.log('✅ 已生成', OUT);
 console.log('   sources 行数 =', srcRows.length);
 console.log('   bodies  行数 =', bodyRows.length);
+console.log('   observations 行数 = 0（Day 18：只建表，不插数据）');
 const moon = BODIES.find((b) => b.id === 'moon');
 const r = resolveSourceIds(moon);
 console.log('   月球来源验证 :', r.primary, '+', r.extra.join(',') || '(无)');

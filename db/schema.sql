@@ -1,7 +1,9 @@
 -- ============================================================================
 --  db/schema.sql —— 建表脚本（Day 16）
 --  环境：腾讯云 CloudBase · PostgreSQL
---  目标：建出 bodies（天体 11 行）与 sources（数据来源 4 行）两张表
+--  目标：建出三张表 —— sources（数据来源 4 行）· bodies（天体 11 行）· observations（观测记录，**0 行**）
+--        ⚠️ observations 是 **Day 18 新增**的（项目里第一张"**用户产出的数据**"表）；
+--           Day 16 只建了前两张。它的结构定在 api-contract.md 的 **3.4.4**。
 --
 --  【设计依据】本文件里的每个字段，都是从 src/data/bodies.js 的**实际结构**推出来的
 --  （用探针实跑 vm.runInContext 读 window.SOLAR_BODIES 得到 11 个天体 / 21 个字段名），
@@ -17,8 +19,11 @@
 --     而且 seed.sql 反正也会重新灌一遍，所以这个代价是零。
 -- ============================================================================
 
-DROP TABLE IF EXISTS bodies  CASCADE;
-DROP TABLE IF EXISTS sources CASCADE;
+-- ⚠️ DROP 顺序 = 建表顺序的**倒序**：先删"引用别人"的 observations，再删被引用的 bodies / sources。
+--    生成器（gen-seed.mjs）就是锚在**这一段的第一行**上来抽取 DDL 的（见该文件里的说明）。
+DROP TABLE IF EXISTS observations CASCADE;
+DROP TABLE IF EXISTS bodies       CASCADE;
+DROP TABLE IF EXISTS sources      CASCADE;
 
 
 -- ----------------------------------------------------------------------------
@@ -220,17 +225,75 @@ COMMENT ON COLUMN bodies.aphelion_au IS
 COMMENT ON COLUMN bodies.sort_order IS
   '图鉴显示顺序：1=太阳 … 11=哈雷彗星。唯一（uq_bodies_sort_order）';
 
--- 刻意**不加**额外索引：两张表一共 15 行，主键和 UNIQUE 已经自带索引，
+-- ----------------------------------------------------------------------------
+--  observations —— 观测记录（**Day 18 新建**）
+--
+--  ⚠️ 为什么单独建一张表，而不是往 bodies 里写？
+--     bodies / sources 装的是 **NASA 真数据**（别人产出的）；
+--     observations 装的是 **用户产出的数据**（我观测了什么）。
+--     把用户输入写进真数据表 = 污染真数据 —— 与项目红线「**禁止虚构数据**」直接冲突。
+--
+--  ⚠️ 本表**起步是空表（0 行）**，故意没有种子数据：
+--     它的内容**只能由 POST /api/observations 产生**（Day 18）。
+--     ⇒ 这正好是第 4 步验证的天然对照：`0 行 → POST → 1 行 → 重复 POST → 被拒 → 仍然 1 行`。
+--
+--  🔑 防重复（= 清单里"同一天同一计划项重复打卡"的等价物）：
+--     靠**唯一约束** uq_observations_body_date (body_id, observed_on)
+--     ⇒ 同一天 + 同一天体 = 只能有一条记录。
+--     ⚠️ 规则交给**数据库**，而不是相信应用层的"先查再插"（那有竞态窗口）。
+-- ----------------------------------------------------------------------------
+CREATE TABLE observations (
+  id           uuid        PRIMARY KEY,   -- 记录 id。由**云函数**用 crypto.randomUUID() 生成
+                                          --   ⚠️ 刻意不写 DEFAULT gen_random_uuid()：不想让表结构
+                                          --      依赖 pgcrypto 扩展在环境里装没装
+  body_id      text        NOT NULL,      -- 观测对象 → bodies(id)，如 'mars'
+  observed_on  date        NOT NULL,      -- 观测日期
+                                          --   ⚠️ 刻意**不加**"不能是未来"的 CHECK：status 里有
+                                          --      planned（计划观测），未来日期本身是合法的
+  status       text        NOT NULL,      -- 观测状态，只有 3 种，见下面 CHECK
+  note         text,                      -- 备注，可空
+  created_at   timestamptz NOT NULL DEFAULT now(),  -- 由**数据库**生成，不信任客户端时间
+
+  -- ---- 约束（集中写在这里，一眼看全）--------------------------------------
+  CONSTRAINT ck_observations_status
+    CHECK (status IN ('observed', 'missed', 'planned')),
+  CONSTRAINT ck_observations_note_len
+    CHECK (note IS NULL OR char_length(note) <= 200),
+  CONSTRAINT uq_observations_body_date
+    UNIQUE (body_id, observed_on),        -- 🔑 防重复的唯一真防线
+
+  -- ---- 外键 --------------------------------------------------------------
+  CONSTRAINT fk_observations_body
+    FOREIGN KEY (body_id) REFERENCES bodies (id) ON DELETE RESTRICT
+);
+
+-- ---- observations 的注释（同样写进数据库元数据）--------------------------
+COMMENT ON TABLE observations IS
+  '用户观测记录（Day 18 新建）。空表起步，内容只能由 POST /api/observations 产生。';
+COMMENT ON COLUMN observations.id IS
+  '记录 id（主键，uuid）。由云函数用 crypto.randomUUID() 生成，不是数据库的默认值';
+COMMENT ON COLUMN observations.body_id IS
+  '观测对象 → bodies(id)（外键）。只能是已有天体的 id，如 mars / moon / halley';
+COMMENT ON COLUMN observations.observed_on IS
+  '观测日期（date）。与 body_id 组成唯一约束 uq_observations_body_date ⇒ 同一天同一天体只能记一条';
+COMMENT ON COLUMN observations.status IS
+  '观测状态，只有 3 种：observed（观测到了）/ missed（没看到）/ planned（计划观测）（ck_observations_status）';
+COMMENT ON COLUMN observations.note IS
+  '备注，可空，最长 200 字符（ck_observations_note_len）';
+COMMENT ON COLUMN observations.created_at IS
+  '写入时间，由数据库 DEFAULT now() 生成 —— 不信任客户端传的时间';
+
+-- 刻意**不加**额外索引：三张表一共 15 行，主键和 UNIQUE 已经自带索引，
 -- 再加 type / source_id 的索引纯属浪费。等数据量真的大了再说。
 
 
 -- ----------------------------------------------------------------------------
 --  自检：跑完立刻确认"表在不在、列数对不对"
---  （只要脚本跑成功，这一句一定会回 28 和 3）
+--  （只要脚本跑成功，这一句一定会回：bodies 28 / observations 6 / sources 3）
 -- ----------------------------------------------------------------------------
 SELECT table_name, count(*) AS column_count
   FROM information_schema.columns
  WHERE table_schema = 'public'
-   AND table_name IN ('bodies', 'sources')
+   AND table_name IN ('bodies', 'observations', 'sources')
  GROUP BY table_name
  ORDER BY table_name;

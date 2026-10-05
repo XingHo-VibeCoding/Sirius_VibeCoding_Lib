@@ -24,7 +24,8 @@
   "gateway": {
     "routes": [
       { "path": "/api/health", "target": "function:health" },
-      { "path": "/api/bodies", "target": "function:api" }
+      { "path": "/api/bodies", "target": "function:api" },
+      { "path": "/api/observations", "target": "function:api" }
     ]
   }
 }
