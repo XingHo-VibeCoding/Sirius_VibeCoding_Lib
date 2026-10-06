@@ -227,6 +227,95 @@
     </p>
   </div>
 
+  <!-- ============================================================
+       视图 4 · 检查台（#/status）—— Day 20 新增
+
+       ⚠️ 这是一个**给开发和验收用的**页面，不是产品功能：
+       顶部导航里**故意没有入口**，只能手动输地址 #/status 打开。
+       理由：它展示的是"服务活着没、表里有什么、写一条试试"这类运维信息，
+       普通访客看到会莫名其妙，也会把产品导航撑成四条。
+
+       它复用了路由和显隐那一整套（data-view-for + <body data-view>），
+       所以 Day 13 的三视图机制一行都没改，只是多挂了一个视图进来。
+
+       三张卡片各看一件事，逻辑都在 src/status.js 里：
+         ① 服务健康      GET  /api/health
+         ② 数据库真实数据 GET  /api/bodies
+         ③ 写入测试      POST /api/observations
+       ============================================================ -->
+  <div id="view-status" class="view" data-view-for="status">
+    <section id="status-board" class="status-board" aria-labelledby="status-title">
+      <h2 id="status-title" class="status-title">检查台</h2>
+      <p class="status-sub">
+        给开发和验收用的页面：看服务活着没有、看数据库里真实的数据、试写一条观测记录。
+        顶部导航没有它的入口 —— 想访问就在地址栏里手动加上 <code>#/status</code>。
+      </p>
+
+      <!-- 「最后更新」时间戳（Day 20 余力加练）。
+           它是**整页**的，所以放在副标题下面、不属于任何一张卡片。
+           语义 = 这一屏结果最后一次刷新的时刻（成功失败都算），不是"最后成功的时间" ——
+           排查时最怕把十分钟前的旧结果当成刚试的，记"尝试时刻"才不会误导。
+           脚本里由 stampUpdated() 在每次检查/读取/写入结束后刷新。 -->
+      <p id="status-updated" class="status-updated" aria-live="polite">最后更新：—（还没检查）</p>
+
+      <!-- 卡片 ① 服务健康 —— 只回答"服务活着吗"，不碰数据库 -->
+      <section class="status-card">
+        <h3 class="status-card-title">① 服务健康 <span class="status-src">GET /api/health</span></h3>
+        <p id="health-line" class="status-line">还没检查。</p>
+        <p class="status-actions">
+          <button id="health-check" class="btn" type="button">检查一次</button>
+        </p>
+      </section>
+
+      <!-- 卡片 ② 数据库真实数据 —— 读 bodies 表。
+           点读出来的色点用的就是数据库里那个颜色，改库里的颜色这里立刻跟着变。 -->
+      <section class="status-card">
+        <h3 class="status-card-title">② 数据库 · bodies 表 <span class="status-src">GET /api/bodies</span></h3>
+        <p id="data-line" class="status-line">还没读取。</p>
+        <ul id="data-list" class="status-chips"></ul>
+        <p class="status-actions">
+          <button id="data-load" class="btn" type="button">读一次</button>
+        </p>
+        <p class="status-note">
+          ⚠️ 观测记录表（<code>observations</code>）目前<strong>没有读接口</strong>
+          （Day 18 拍板只解锁写侧），所以这里列不出已经写进去的观测记录 —— 这是登记在册的现状。
+        </p>
+      </section>
+
+      <!-- 卡片 ③ 写入测试 —— 一个真的会写库的入口。
+           ⚠️ 它会往数据库里加行，不是"演练"：同一天同一个天体重复提交会被唯一约束挡住。 -->
+      <section class="status-card">
+        <h3 class="status-card-title">③ 写入测试 · observations 表 <span class="status-src">POST /api/observations</span></h3>
+        <form id="write-form" class="status-form">
+          <label class="status-field" for="write-body">天体
+            <select id="write-body"></select>
+          </label>
+          <label class="status-field" for="write-date">观测日期
+            <input id="write-date" type="date">
+          </label>
+          <label class="status-field" for="write-status">状态
+            <select id="write-status">
+              <option value="observed">观测到了</option>
+              <option value="missed">没看到</option>
+              <option value="planned">计划观测</option>
+            </select>
+          </label>
+          <label class="status-field" for="write-note">备注（可空）
+            <input id="write-note" type="text" maxlength="200" placeholder="比如：肉眼可见，偏红">
+          </label>
+          <p class="status-actions">
+            <button id="write-submit" class="btn" type="submit">写入一条</button>
+          </p>
+        </form>
+        <p id="write-line" class="status-line">还没写过。</p>
+        <p class="status-note">
+          同一天 + 同一个天体 = 只能有一条，重复提交会被数据库的唯一约束拒掉
+          （那是防重复机制在工作，不是报错）。换个日期或换个天体就能再写。
+        </p>
+      </section>
+    </section>
+  </div>
+
   <footer class="page-footer">
     <p>数据来源：NASA Planetary Fact Sheet ／ NASA Sun Fact Sheet（逐条标注见 <code>src/data/bodies.js</code>）</p>
   </footer>
@@ -263,6 +352,10 @@
   <script src="src/filter.js"></script>
   <script src="src/controls.js"></script>
   <script src="src/focus3d.js"></script>
+  <!-- Day 20 新增：检查台（#/status）。
+       排在最后 —— 它不参与主流程，只是站在旁边读接口、看数据；
+       就算它没加载出来，探索 / 图鉴 / 详情三个视图照常可用。 -->
+  <script src="src/status.js"></script>
 
 </body>
 </html>

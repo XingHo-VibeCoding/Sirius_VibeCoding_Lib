@@ -10,6 +10,10 @@
  *   #/explore      探索（默认）—— 2D 主图 + 调控区
  *   #/catalog      图鉴        —— 天体目录 + 筛选
  *   #/body/:id     详情        —— 单颗天体的资料（:id 如 sun / halley）
+ *   #/status       检查台      —— Day 20 新增，给开发和验收用
+ *                              ⚠️ **顶部导航里没有它的入口**，只能手动输地址。
+ *                              因此它是"一级视图里的例外"：切到它时两个导航标签都不点亮
+ *                              （和详情一样 —— syncNav 按 href 找匹配，找不到就不亮）。
  *
  * 三条规矩：
  *   1. 认不出的路径 → 一律落到探索，**绝不出现"三个视图都不显示"的白屏**
@@ -36,7 +40,10 @@
 
   const DEFAULT_VIEW = 'explore';
   const ID_VIEW = 'body';                              // 唯一需要 :id 的视图
-  const KNOWN_VIEWS = ['explore', 'catalog', ID_VIEW];
+  const KNOWN_VIEWS = ['explore', 'catalog', ID_VIEW, 'status'];
+  /*                                  ↑ Day 20 新增：检查台。
+     加进这张表就够了 —— 视图怎么显示、怎么隐藏全由
+     styles/main.css 读 <body data-view> 决定，路由这边只负责"认得出这个名字"。 */
 
   let current = { view: '', id: '' };
   /* 详情页的"上一层"是谁。从一级视图点进详情时记下来 ——

@@ -101,6 +101,7 @@ VibeCoding/
 │   ├── filter.js           目录筛选：类型按钮 + 搜索框（Day 12）
 │   ├── controls.js         调控区（时间流速 / 轨道比例 / 教学对比）
 │   ├── focus3d.js          3D 聚焦（按需加载 Three.js）
+│   ├── status.js           检查台（#/status）：服务健康 / 数据库真实数据 / 写入测试（Day 20）
 │   └── fallback.js         错误兜底（任何一块坏掉都不白屏）
 │
 ├── styles/

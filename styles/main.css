@@ -1107,6 +1107,8 @@ body[data-page-state="error"] #control-bar {
  *   脚本只写 <body data-view="...">，谁显示谁隐藏**全由 CSS 读它决定**。
  *   好处是"当前在哪个视图"只有一处定义，不会出现"标签亮着、内容却是另一个"。
  * 三个视图：explore 探索 / catalog 图鉴 / body 详情（详见 TECH_DESIGN 第 12 节）。
+ * Day 20 新增第四个：status 检查台 —— 它**不在顶部导航里**，
+ * 只能手动输 #/status 访问（给开发和验收用，不是产品功能）。
  * ============================================================ */
 
 /* 默认全藏。所以 src/router.js 必须保证任何情况下都给得出一个已知视图
@@ -1123,7 +1125,8 @@ body[data-page-state="error"] #control-bar {
 
 body[data-view="explore"] #view-explore,
 body[data-view="catalog"] #view-catalog,
-body[data-view="body"] #view-body {
+body[data-view="body"] #view-body,
+body[data-view="status"] #view-status {
   display: flex;
   flex: 1;
   width: 100%;
@@ -1473,5 +1476,201 @@ body[data-view="body"] #body-state:not([data-state="success"]) ~ .body-view-acti
     min-width: 44px;
     padding: 0 6px;
     justify-content: center;
+  }
+}
+
+/* ============================================================
+ * 视图 4 · 检查台（#/status）—— Day 20 新增
+ * ------------------------------------------------------------
+ * 只在手动访问 #/status 时可见，**顶部导航里没有入口**。
+ * 配色沿用项目既有那套（深底 + #7fa8e0 主色 + 半透明白块），
+ * 不另起一套色板 —— 否则这页看上去像从外面挂进来的。
+ *
+ * ⚠️ 它不是产品内容，但**同样要守 Day 8/9 那两条底线**：
+ *    手机端不横向溢出、可点元素 44×44。运维页一样会有人在手机上开。
+ * ============================================================ */
+.status-board {
+  width: min(680px, 100%);
+  padding: 4px 16px 28px;
+}
+
+.status-title {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-align: center;
+}
+
+.status-sub {
+  margin: 0 0 16px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: #8e9ab5;
+  text-align: center;
+}
+
+/* 「最后更新」时间戳（Day 20 余力加练）。
+   ⚠️ 字号沿用 12px、不新开一档 —— 项目里的字号散点本来就是要慢慢收的，
+      余力加练不该再往里添一个随手值（11.5 / 12.5 那种）。
+   与上面的副标题靠**颜色**区分：这里稍亮一点，因为它显示的是活数据。 */
+.status-updated {
+  margin: 0 0 16px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #a8b6d4;
+  text-align: center;
+  /* 数字等宽：秒数在跳的时候整行不会左右抖。 */
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 卡片：一张卡片对应一件事 ---------- */
+.status-card {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.status-card-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #e8ecf5;
+}
+
+/* 接口路径：等宽小字 + 主色底，跟标题分开 ——
+   让人一眼看出这张卡片在调哪个地址（排查时最常问的就是这个）。 */
+.status-src {
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 11px;
+  color: #9fc0f0;
+  background: rgba(127, 168, 224, 0.14);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+/* 结果行。
+   ⚠️ pre-line 是有意的：脚本里那几个 \n 要真的换行，
+      写入结果分成"发出的 / 回吐的 / HTTP"三行才读得下去。 */
+.status-line {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.75;
+  color: #b5c0d6;
+  white-space: pre-line;
+  word-break: break-word;
+}
+
+/* 三种结果色的区分沿用项目已有的可读配色（深底上的浅绿 / 浅红 / 灰） */
+.status-line[data-kind="ok"] {
+  color: #8ed6a8;
+}
+
+.status-line[data-kind="bad"] {
+  color: #f2a0a0;
+}
+
+.status-line[data-kind="wait"] {
+  color: #8e9ab5;
+}
+
+.status-actions {
+  margin: 10px 0 0;
+}
+
+.status-note {
+  margin: 10px 0 0;
+  padding-top: 8px;
+  font-size: 11px;
+  line-height: 1.7;
+  color: #8892ad;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* ---------- bodies 表的色点列表 ---------- */
+.status-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px 3px 7px;
+  font-size: 12px;
+  color: #b5c0d6;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 999px;
+}
+
+/* 色点颜色由脚本按数据库里的 main_color 写进行内样式 ——
+   所以改数据库里的颜色，这里会立刻跟着变。 */
+.status-dot {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+/* ---------- 写入表单 ---------- */
+.status-form {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.status-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: #8e9ab5;
+}
+
+.status-field select,
+.status-field input {
+  min-height: 34px;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 12px;
+  color: #e8ecf5;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+}
+
+.status-field select:focus-visible,
+.status-field input:focus-visible {
+  outline: 2px solid #9fc0f0;
+  outline-offset: 1px;
+}
+
+/* 日期框那个原生日历图标在深底上是黑的，几乎看不见 —— 反相一下 */
+.status-field input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
+  cursor: pointer;
+}
+
+/* 手机档：表单控件单独垫到手指标准 44。
+   ⚠️ 这条必须写在上面基础样式**之后** —— 同特异性下靠后者胜，
+      写在前头会被 .status-field input 那条 34px 反盖回来。
+   （按钮不用管：检查台用的是 .btn，上面 Day 9 那一段已经统一垫过。） */
+@media (max-width: 480px) {
+  .status-field select,
+  .status-field input {
+    min-height: 44px;
   }
 }
