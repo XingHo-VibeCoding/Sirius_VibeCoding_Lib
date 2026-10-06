@@ -32,10 +32,13 @@
 (function () {
   'use strict';
 
-  const TIMEOUT_MS = 8000;
-
-  /* 超时上限：路由没配好 / 网络不通时 fetch 会挂很久，
-     不设上限的话检查台就一直"正在检查…"，看上去像页面卡死。 */
+  /* 超时上限（Day 20 从 8 秒放宽到 15 秒）。
+     ⚠️ 8 秒实测偏紧：云函数**冷启动**时第一次请求可能超过 8 秒 ⇒ 会被误判成"没通"，
+        页面上看起来像**服务挂了**，其实只是"还没睡醒"。
+        （Day 20 实拍：函数空闲 3.5 小时后，14:49 那次两张卡片都报了 ❌；两分钟后自己就好了。）
+     但也不能不设上限：路由没配好 / 网络不通时 fetch 会挂很久，
+     检查台会一直停在"正在检查…"，看上去像页面卡死。 */
+  const TIMEOUT_MS = 15000;
   function withTimeout() {
     const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
     const timer = ctrl
@@ -85,13 +88,23 @@
         note: isEnvelope ? '信封 {ok,data,error}' : '非信封（health 的原始形状）'
       };
     } catch (e) {
+      /* ⭐ 区分「我们自己的超时」和「其它请求失败」—— 两者对用户的意义完全不同：
+         超时多半是云函数冷启动 / 网络慢（**再点一次往往就好**），
+         其它失败才是地址错 / 断网 / 被拦。
+         混成一句会让人把"没睡醒"读成"挂了"。 */
+      const timedOut = !!(e && (e.name === 'AbortError' || /aborted/i.test(e.message || '')));
       return {
         http: null,
         ok: false,
         data: null,
-        error: { code: 'NETWORK', message: (e && e.message) || '请求没能发出去' },
+        error: {
+          code: timedOut ? 'TIMEOUT' : 'NETWORK',
+          message: timedOut
+            ? '超过 ' + Math.round(TIMEOUT_MS / 1000) + ' 秒没有收到响应'
+            : ((e && e.message) || '请求没能发出去')
+        },
         raw: '',
-        note: '请求阶段就失败了（超时 / 断网 / 地址不对）'
+        note: timedOut ? '超时（请求发出去了，服务端没在时限内回）' : '请求阶段就失败了（断网 / 地址不对 / 被拦截）'
       };
     } finally {
       if (t.timer) { clearTimeout(t.timer); }
@@ -103,6 +116,21 @@
     if (!el) { return; }
     el.textContent = text;
     el.setAttribute('data-kind', kind || '');
+  }
+
+  /* 失败时的统一文案（两张"只读"卡片共用）。
+     ⭐ 超时单独说 —— 它多半是"云函数还没睡醒"，跟"地址错 / 断网"不是一回事，
+        而且**给得出下一步动作**（再点一次）。Day 20 实拍撞到的就是这种。
+     ⚠️ 这里拼的是 textContent，别写 Markdown 星号 —— 会原样显示出来。 */
+  function failText(what, r, retryLabel) {
+    const code = (r.error && r.error.code) || '?';
+    if (code === 'TIMEOUT') {
+      return '⏱ ' + what + '超时了 —— 等了超过 ' + Math.round(TIMEOUT_MS / 1000) + ' 秒没等到响应。\n' +
+        '（多半是云函数在冷启动，不是服务挂了。点「' + retryLabel + '」再试一次，通常第二次就秒回。）';
+    }
+    const msg = (r.error && r.error.message) || '(没有 message)';
+    return '❌ ' + what + '没成功。HTTP ' + (r.http === null ? '（没拿到）' : r.http) +
+      ' ／ ' + msg + ' ／ ' + r.note;
   }
 
   /* ---------- 整页的「最后更新」时间戳（Day 20 余力加练） ---------- */
@@ -146,8 +174,7 @@
       const svc = (r.data && r.data.service) || '(响应里没有 service)';
       setLine(line, '✅ 服务在跑。service = 「' + svc + '」 ／ HTTP ' + r.http + ' ／ ' + r.note, 'ok');
     } else {
-      const msg = (r.error && r.error.message) || '(没有 message)';
-      setLine(line, '❌ 没通。HTTP ' + (r.http === null ? '（没拿到）' : r.http) + ' ／ ' + msg + ' ／ ' + r.note, 'bad');
+      setLine(line, failText('服务健康检查', r, '检查一次'), 'bad');
     }
     stampUpdated();
   }
@@ -166,8 +193,7 @@
     if (btn) { btn.disabled = false; }
 
     if (!r.ok) {
-      const msg = (r.error && r.error.message) || '(没有 message)';
-      setLine(line, '❌ 没读到。HTTP ' + (r.http === null ? '（没拿到）' : r.http) + ' ／ ' + msg, 'bad');
+      setLine(line, failText('读取数据库', r, '读一次'), 'bad');
       stampUpdated();
       return;
     }
@@ -263,13 +289,23 @@
     } else {
       const code = (r.error && r.error.code) || '?';
       const msg = (r.error && r.error.message) || '(没有 message)';
-      setLine(line,
-        '❌ 被拒了。\n发出的：' + sent +
-        '\n错误码：' + code + '\n说明：' + msg +
-        '\nHTTP ' + (r.http === null ? '（没拿到）' : r.http) +
-        (code === 'BAD_REQUEST' && /已有观测记录/.test(msg)
-          ? '\n（这是防重复机制在工作：同一天同一个天体只能记一条。换个日期或换个天体再试。）'
-          : ''), 'bad');
+      let text;
+      if (code === 'TIMEOUT') {
+        /* ⚠️ 写入超时**不能**简单说成"没写进去" —— 请求已经发出去了，
+           服务端可能已经落库、只是没来得及回。所以必须把话说全 + 给一个自证的办法。 */
+        text = '⏱ 写入超时了 —— 等了超过 ' + Math.round(TIMEOUT_MS / 1000) + ' 秒没等到响应。\n' +
+          '发出的：' + sent + '\n' +
+          '（多半是云函数在冷启动，不是服务挂了。⚠️ 超时≠没写进去：请求已经发出去了，服务端可能已经落库。\n' +
+          '想确认：用同一个日期再提交一次 —— 被判「已有观测记录」= 上次其实成功了；这次提交成功 = 上次没写进去。）';
+      } else {
+        text = '❌ 被拒了。\n发出的：' + sent +
+          '\n错误码：' + code + '\n说明：' + msg +
+          '\nHTTP ' + (r.http === null ? '（没拿到）' : r.http) +
+          (code === 'BAD_REQUEST' && /已有观测记录/.test(msg)
+            ? '\n（这是防重复机制在工作：同一天同一个天体只能记一条。换个日期或换个天体再试。）'
+            : '');
+      }
+      setLine(line, text, 'bad');
     }
     stampUpdated();
   }
