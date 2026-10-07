@@ -87,6 +87,7 @@ VibeCoding/
 ├── TECH_DESIGN.md          技术设计文档（Day 5）
 ├── api-contract.md         接口契约（Day 15 起；v0.4.1）
 ├── USER_TEST.md            真机测试记录（Day 14）
+├── WEEK3_ACCEPTANCE.md     第 3 周验收表 + 同伴交叉验证 + 演示提纲（Day 21）
 ├── cloudbaserc.json        CloudBase 配置：云函数清单 + 网关路由（Day 15）
 ├── README.md               本文件
 │
