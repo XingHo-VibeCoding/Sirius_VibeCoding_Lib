@@ -5,17 +5,22 @@
  * 它**不对外**：顶部导航里没有入口，只能手动输地址打开
  * （运维页不该混进产品导航里）。
  *
- * 它回答三个问题：
- *   ① 服务活着没有            → GET  /api/health
- *   ② 数据库里到底有什么       → GET  /api/bodies
- *   ③ 写一条能不能写进数据库   → POST /api/observations
+ * 它回答四个问题：
+ *   ① 服务活着没有              → GET    /api/health
+ *   ② 数据库里到底有什么         → GET    /api/bodies
+ *   ③ 写一条能不能写进数据库     → POST   /api/observations
+ *   ④ 写进去的能不能改、能不能删 → PATCH  /api/observations?id=
+ *                                  DELETE /api/observations?id=
  *
  * 页头另有一个「最后更新」时间戳（Day 20 余力加练）：
  * 记录这一屏结果最后一次刷新的时刻，见下方 stampUpdated()。
  *
- * ⚠️ 为什么"②"只能看 bodies、看不到观测记录：
- *   observations 表 Day 18 拍板**不做读接口**（只解锁写侧），
- *   所以这里列不出已写入的观测记录 —— 这是**登记在册的现状**，不是坏了。
+ * ⭐ Day 22 板块③ 步骤 3：卡片④ 是**跟着读接口一起来的**。
+ *   在此之前（Day 18 拍板"只解锁写侧"）检查台只能盲写：写进去了什么看不见，
+ *   要删一条还得自己去数据库里抄 uuid。有了 GET /api/observations，
+ *   卡片④ 才第一次能"**先看到要改哪条，再动手**"。
+ *   ⚠️ 连带影响：原来这里写过一句"observations 没有读接口"，那句已**过期**，
+ *      HTML 里对应的说明也一起改掉了（注释与代码必须同步，Day 17 起定的规矩）。
  *
  * 【为什么自己写请求函数，不用 src/api.js】
  *   src/api.js 是 Day 17 的取数层，但它带一条"取不到就回退到页面自带数据"的兜底逻辑。
@@ -310,6 +315,233 @@
     stampUpdated();
   }
 
+  /* ---------- 卡片 ④：修改 / 删除 ---------- */
+
+  /* 正在编辑的那条记录（null = 没在编辑）。
+     用**模块级变量**持有整个对象，而不是把 id 塞进 DOM 的 data- 属性再回读 ——
+     后者多一道"字符串 ↔ 对象"转换，而且转错了**不会报错**，只会改错行。 */
+  let editing = null;
+
+  /* 备注的显示：让"没有备注"和"备注是空串"看起来一样（库里两者都存成 null）。 */
+  function noteText(v) {
+    return (v === null || v === undefined || v === '') ? '(空)' : '「' + v + '」';
+  }
+
+  /* 画一行记录。三个要点：
+     · 全程 createElement + textContent，**不拼 HTML 字符串** ——
+       备注是用户输入的内容，拼字符串就是自己给自己开 XSS 的门；
+     · ⚠️ uuid **完整显示、不截断** —— 删之前要拿它核对"删的是不是这条"；
+     · 按钮的点击用**闭包直接持有那一条记录**，不在 DOM 上挂 id 再回查。 */
+  function recordRow(rec) {
+    const li = document.createElement('li');
+    li.className = 'status-record';
+
+    const main = document.createElement('span');
+    main.className = 'status-record-main';
+    main.textContent = (rec.bodyId || '?') + ' · ' + (rec.observedOn || '?') +
+      ' · ' + (STATUS_LABEL[rec.status] || rec.status || '?') +
+      (rec.note ? ' · 「' + rec.note + '」' : ' · （无备注）');
+    li.appendChild(main);
+
+    const idLine = document.createElement('span');
+    idLine.className = 'status-record-id';
+    idLine.textContent = '(id) ' + (rec.id || '?');
+    li.appendChild(idLine);
+
+    const act = document.createElement('span');
+    act.className = 'status-record-act';
+
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'btn btn-small';
+    editBtn.textContent = '改';
+    editBtn.addEventListener('click', function () { openEdit(rec); });
+    act.appendChild(editBtn);
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'btn btn-small btn-danger';
+    delBtn.textContent = '删';
+    delBtn.addEventListener('click', function () { removeRecord(rec); });
+    act.appendChild(delBtn);
+
+    li.appendChild(act);
+    return li;
+  }
+
+  async function loadObservations() {
+    const line = document.getElementById('obs-line');
+    const list = document.getElementById('obs-list');
+    const btn = document.getElementById('obs-load');
+    if (btn) { btn.disabled = true; }
+    setLine(line, '正在读取…', 'wait');
+    if (list) { list.textContent = ''; }
+
+    const r = await call('/api/observations');
+    if (btn) { btn.disabled = false; }
+
+    if (!r.ok) {
+      setLine(line, failText('读取观测记录', r, '读一次'), 'bad');
+      stampUpdated();
+      return;
+    }
+
+    const total = r.data && typeof r.data.total === 'number' ? r.data.total : '?';
+    const items = (r.data && r.data.items) || [];
+    setLine(line,
+      '✅ 读到 ' + items.length + ' 条（total = ' + total + '） ／ HTTP ' + r.http +
+      (items.length ? '' : '\n（表是空的 —— 先到上面的「③ 写入测试」写一条，这里才有东西可改、可删。）'), 'ok');
+
+    if (!list) { return; }
+    items.forEach(function (rec) { list.appendChild(recordRow(rec)); });
+
+    /* ⚠️ 刷新之后，原来打开着的编辑区可能指向一条**已经不在列表里**的记录
+       （最典型的就是刚被删掉的那条）⇒ 把它关掉，
+       免得界面上留着一个正在编辑、其实已经不存在的对象。 */
+    if (editing && !items.some(function (x) { return x.id === editing.id; })) {
+      closeEdit();
+    }
+
+    stampUpdated();
+  }
+
+  /* 打开编辑区并预填当前值（"改之前"的值要看得见，否则改完没法对比）。 */
+  function openEdit(rec) {
+    editing = rec;
+    const form = document.getElementById('edit-form');
+    const target = document.getElementById('edit-target');
+    const sel = document.getElementById('edit-status');
+    const note = document.getElementById('edit-note');
+    if (!form) { return; }
+
+    if (target) {
+      target.textContent = '正在改：' + (rec.bodyId || '?') + ' · ' + (rec.observedOn || '?') +
+        '\n(id) ' + (rec.id || '?') +
+        '\n（天体与日期改不了 —— 那是"记的是谁、哪一天"，要换只能删了重记。）';
+    }
+    if (sel) { sel.value = rec.status || 'observed'; }
+    if (note) { note.value = rec.note || ''; }
+    form.hidden = false;
+    if (sel) { sel.focus(); }
+  }
+
+  function closeEdit() {
+    editing = null;
+    const form = document.getElementById('edit-form');
+    if (form) { form.hidden = true; }
+    const target = document.getElementById('edit-target');
+    if (target) { target.textContent = ''; }
+  }
+
+  async function submitEdit(ev) {
+    ev.preventDefault();
+    if (!editing) { return; }
+
+    const line = document.getElementById('edit-line');
+    const btn = document.getElementById('edit-submit');
+    if (btn) { btn.disabled = true; }
+    setLine(line, '正在保存…', 'wait');
+
+    const before = editing;
+    const status = document.getElementById('edit-status').value;
+    const noteRaw = document.getElementById('edit-note').value.trim();
+
+    /* ⭐⭐ PATCH 与 POST 在"空值"上**语义相反**，这是全篇最容易照抄错的一处：
+         POST ：note 空 ⇒ **不带这个键**（= 这个字段没有值）；
+         PATCH：note 空 ⇒ **必须带这个键、值给 null**（= 把这一列清空）。
+       这里若照抄 POST 的写法，"清空备注"就会**静默失败** ——
+       界面回你"改好了"，库里那行备注却一动没动。
+       （接口层刻意用 hasOwnProperty 判"给没给这个字段"，接的就是这个 null。） */
+    const payload = { status: status, note: noteRaw ? noteRaw : null };
+
+    const r = await call('/api/observations?id=' + encodeURIComponent(before.id), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (btn) { btn.disabled = false; }
+
+    const sent = JSON.stringify(payload);
+
+    if (r.ok) {
+      const saved = r.data || {};
+      /* ⭐ 结果里把"改之前 / 改之后"**并排**写出来 ——
+         验收要看的正是这个对比；只回一句"改好了"是看不出到底变没变的。 */
+      setLine(line,
+        '✅ 改好了。\n发出的：' + sent +
+        '\n改之前：status=' + (before.status || '?') + ' ／ note=' + noteText(before.note) +
+        '\n改之后：status=' + (saved.status || '?') + ' ／ note=' + noteText(saved.note) +
+        '\n(id) ' + (saved.id || before.id) +
+        '\nHTTP ' + r.http + '（⚠️ 成功与失败都是 200，判断一律看 ok）', 'ok');
+      closeEdit();
+      loadObservations();   /* 列表跟着刷新 —— 改动在列表里也看得见 */
+    } else {
+      setLine(line, failText('修改', r, '读一次') + '\n发出的：' + sent, 'bad');
+    }
+    stampUpdated();
+  }
+
+  /* 删除失败时**不能**套用 failText 的超时文案：
+     那句说的是"点某个按钮再试一次"，而删除超时的正确动作是**先去列表里看一眼** ——
+     请求已经发出去了，服务端可能已经删了。（与 Day 20 写入超时同一套推理。） */
+  function deleteFailText(r) {
+    const code = (r.error && r.error.code) || '?';
+    if (code === 'TIMEOUT') {
+      return '⏱ 删除超时了 —— 等了超过 ' + Math.round(TIMEOUT_MS / 1000) + ' 秒没等到响应。\n' +
+        '⚠️ 超时≠没删掉：请求已经发出去了，服务端可能已经删了。\n' +
+        '想确认：点「读一次」刷新列表 —— 那条**不在**列表里 = 已经删掉了；**还在** = 没删掉，可以再删一次。';
+    }
+    const msg = (r.error && r.error.message) || '(没有 message)';
+    return '❌ 删除没成功。HTTP ' + (r.http === null ? '（没拿到）' : r.http) +
+      ' ／ ' + msg + ' ／ ' + r.note;
+  }
+
+  async function removeRecord(rec) {
+    /* ⭐ 二次确认（拍板 Q6）。它不是"多一步流程"，而是**人对自己手滑的最后一道闸**：
+         仓库层拦的是"我们自己写漏了 .eq() 会清空整张表"，
+         接口层拦的是"调用方传来坏 id"，
+         这里拦的是"手指按错了行、或者提前按了"。
+       三处拦的是**三种不同来源**的错，所以缺一不可 —— 不能因为"接口层已经校验了"就省掉这个框。 */
+    const label = (rec.bodyId || '?') + ' · ' + (rec.observedOn || '?') +
+      ' · ' + (STATUS_LABEL[rec.status] || rec.status || '?') +
+      (rec.note ? ' · 「' + rec.note + '」' : ' · （无备注）');
+    /* ⚠️ confirm 是**纯文本弹窗**，文案里不要写 Markdown 的星号 —— 会原样显示出来。 */
+    const sure = window.confirm(
+      '确认删除这条观测记录吗？\n\n' + label + '\n(id) ' + rec.id +
+      '\n\n⚠️ 这是真删（从数据库里移除），删掉之后找不回来。'
+    );
+
+    const line = document.getElementById('edit-line');
+    if (!sure) {
+      setLine(line, '已取消，什么都没有删。（如果你只是想改它，点那一行的「改」。）', 'wait');
+      stampUpdated();
+      return;
+    }
+
+    setLine(line, '正在删除…', 'wait');
+
+    /* DELETE **不需要请求体** ⇒ 不设 Content-Type、不发 body。
+       （"发一个空 JSON 体"和"什么都不发"在服务端不是一回事，别顺手抄 PATCH 那一段。） */
+    const r = await call('/api/observations?id=' + encodeURIComponent(rec.id), { method: 'DELETE' });
+
+    if (r.ok) {
+      const gone = r.data || {};
+      setLine(line,
+        '✅ 删掉了。\n服务端回吐（= 删之前的那一行）：' +
+        '\nbodyId=' + (gone.bodyId || '?') + ' ／ observedOn=' + (gone.observedOn || '?') +
+        ' ／ status=' + (gone.status || '?') + ' ／ note=' + noteText(gone.note) +
+        '\n(id) ' + (gone.id || rec.id) +
+        '\nHTTP ' + r.http +
+        '\n（接口把删掉的内容回吐回来，好让你核对删的确实是这一条；' +
+        '下面列表刷新后它就不在里面了 —— 那就是"删掉了"的直接证据。）', 'ok');
+      closeEdit();
+      loadObservations();
+    } else {
+      setLine(line, deleteFailText(r), 'bad');
+    }
+    stampUpdated();
+  }
+
   /* ---------- 接线 ---------- */
 
   function bind() {
@@ -322,6 +554,15 @@
     const form = document.getElementById('write-form');
     if (form) { form.addEventListener('submit', submitWrite); }
 
+    const obsLoad = document.getElementById('obs-load');
+    if (obsLoad) { obsLoad.addEventListener('click', loadObservations); }
+
+    const editForm = document.getElementById('edit-form');
+    if (editForm) { editForm.addEventListener('submit', submitEdit); }
+
+    const editCancel = document.getElementById('edit-cancel');
+    if (editCancel) { editCancel.addEventListener('click', closeEdit); }
+
     fillBodyOptions();
     const dateInput = document.getElementById('write-date');
     if (dateInput) { dateInput.value = todayStr(); }
@@ -332,6 +573,10 @@
       if (window.location.hash.indexOf('#/status') === 0) {
         checkHealth();
         loadData();
+        /* 卡片④ 的读取也是**只读**（GET），和 ①② 一样进页面自动跑一次 ——
+           一进来就能看到"库里现在有哪些记录"，不必先点一下才有东西看。
+           （卡片③ 是写操作、有副作用，所以**不**自动跑。） */
+        loadObservations();
       }
     }
     window.addEventListener('hashchange', onEnter);

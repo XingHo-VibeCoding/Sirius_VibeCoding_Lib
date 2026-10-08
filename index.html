@@ -238,16 +238,20 @@
        它复用了路由和显隐那一整套（data-view-for + <body data-view>），
        所以 Day 13 的三视图机制一行都没改，只是多挂了一个视图进来。
 
-       三张卡片各看一件事，逻辑都在 src/status.js 里：
-         ① 服务健康      GET  /api/health
-         ② 数据库真实数据 GET  /api/bodies
-         ③ 写入测试      POST /api/observations
+       四张卡片各看一件事，逻辑都在 src/status.js 里：
+         ① 服务健康       GET    /api/health
+         ② 数据库真实数据  GET    /api/bodies
+         ③ 写入测试       POST   /api/observations
+         ④ 修改 / 删除    PATCH  /api/observations?id=
+                          DELETE /api/observations?id=
+         （④ 是 Day 22 板块③ 步骤 3 加的：有了读接口，才第一次"看得见要改、要删的是哪一条"。）
        ============================================================ -->
   <div id="view-status" class="view" data-view-for="status">
     <section id="status-board" class="status-board" aria-labelledby="status-title">
       <h2 id="status-title" class="status-title">检查台</h2>
       <p class="status-sub">
-        给开发和验收用的页面：看服务活着没有、看数据库里真实的数据、试写一条观测记录。
+        给开发和验收用的页面：看服务活着没有、看数据库里真实的数据、试写一条观测记录，
+        再把写进去的记录<strong>改一改、删掉</strong>。
         顶部导航没有它的入口 —— 想访问就在地址栏里手动加上 <code>#/status</code>。
       </p>
 
@@ -277,8 +281,9 @@
           <button id="data-load" class="btn" type="button">读一次</button>
         </p>
         <p class="status-note">
-          ⚠️ 观测记录表（<code>observations</code>）目前<strong>没有读接口</strong>
-          （Day 18 拍板只解锁写侧），所以这里列不出已经写进去的观测记录 —— 这是登记在册的现状。
+          这张卡片读的是 <code>bodies</code> 表（天体）。
+          ⭐ Day 22 起 <code>observations</code>（观测记录）也有了读接口 ——
+          要看 / 改 / 删观测记录，请用下面的「④ 修改 · 删除」。
         </p>
       </section>
 
@@ -311,6 +316,53 @@
         <p class="status-note">
           同一天 + 同一个天体 = 只能有一条，重复提交会被数据库的唯一约束拒掉
           （那是防重复机制在工作，不是报错）。换个日期或换个天体就能再写。
+        </p>
+      </section>
+
+      <!-- 卡片 ④ 修改 / 删除（Day 22 板块③ 步骤 3）——
+           这张卡片存在的理由是一个**读接口**。
+           Day 18 拍板"只解锁写侧"时，检查台只能盲写：写进去了什么、能不能删，全看不见；
+           要删一条还得让人自己去数据库里抄 uuid。Day 22 加了 GET /api/observations，
+           这里才第一次能"**先看到要改哪条、再动手**"—— 这正是拍板 Q5(a) 的第 ③ 条理由。
+           ⚠️ 删除用 window.confirm() 二次确认（拍板 Q6）：
+              今天选的是**硬删**（不可逆），确认框是人对自己手滑的最后一道闸。
+              另外两道在仓库层（remove() 拒绝空 id）和接口层（id 三态 + uuid 格式校验）。 -->
+      <section class="status-card">
+        <h3 class="status-card-title">④ 修改 · 删除 · observations 表 <span class="status-src">PATCH ／ DELETE /api/observations?id=</span></h3>
+        <p id="obs-line" class="status-line">还没读取。</p>
+        <ul id="obs-list" class="status-records"></ul>
+        <p class="status-actions">
+          <button id="obs-load" class="btn" type="button">读一次</button>
+        </p>
+
+        <!-- 编辑区：点了某条的「改」才出现。
+             ⚠️ 开关用 `hidden` **属性**（由脚本切换），不用 CSS 类的 display:none ——
+                "现在开没开"在 DOM 里一眼看得出来，排查时不用去翻样式表。 -->
+        <form id="edit-form" class="status-form" hidden>
+          <p id="edit-target" class="status-note"></p>
+          <label class="status-field" for="edit-status">状态
+            <select id="edit-status">
+              <option value="observed">观测到了</option>
+              <option value="missed">没看到</option>
+              <option value="planned">计划观测</option>
+            </select>
+          </label>
+          <label class="status-field" for="edit-note">备注（留空 = 清掉备注）
+            <input id="edit-note" type="text" maxlength="200" placeholder="想清空备注就直接删掉里面的字">
+          </label>
+          <p class="status-actions btn-row">
+            <button id="edit-submit" class="btn" type="submit">保存修改</button>
+            <button id="edit-cancel" class="btn" type="button">取消</button>
+          </p>
+        </form>
+
+        <p id="edit-line" class="status-line">还没改过，也没删过。</p>
+        <p class="status-note">
+          「改」只能改<strong>状态</strong>和<strong>备注</strong>（契约 3.5 的字段白名单）——
+          天体与日期是"这条记录记的是谁、哪一天"，改了等于换一条记录，
+          所以接口会**报错**而不是默默忽略。
+          「删」是真删（从数据库移除），点下去会先弹一次确认框；
+          删掉的那一行会由接口**回吐**回来，好让你核对删的确实是它。
         </p>
       </section>
     </section>

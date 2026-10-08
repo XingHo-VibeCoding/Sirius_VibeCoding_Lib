@@ -1632,6 +1632,20 @@ body[data-view="body"] #body-state:not([data-state="success"]) ~ .body-view-acti
   gap: 9px;
 }
 
+/* 🔴 必须有这一条 —— 这是本项目**每处 hidden 都要配**的兜底，
+   原因：`.status-form` 是 `display: flex`，而作者样式**优于** UA 样式里
+   `[hidden] { display: none }`（同特异性下作者胜）⇒ 隐藏会失效。
+   参照同文件里已有的 .compare-wrap[hidden] / .focus-overlay[hidden] /
+   .fallback-bar[hidden] / .intro-overlay[hidden] / .catalog-filter[hidden]。
+   ⚠️ Day 22 加 #edit-form 时漏了这条 ⇒ **编辑区关不掉**（点「取消」仍显示着），
+      而自动验收**没抓到** —— 它查的是 `form.hidden` **属性值**（确实是 true），
+      **属性对 ≠ 视觉隐藏**。最后是**看截图**才发现的。
+      ⇒ 断言这类"开关"时，一律读 `getComputedStyle(el).display`，不要只读属性。
+   📌 卡片③ 的 #write-form 也挂着 .status-form，但它从不 hidden，所以不受影响。 */
+.status-form[hidden] {
+  display: none;
+}
+
 .status-field {
   display: flex;
   flex-direction: column;
@@ -1671,6 +1685,93 @@ body[data-view="body"] #body-state:not([data-state="success"]) ~ .body-view-acti
 @media (max-width: 480px) {
   .status-field select,
   .status-field input {
+    min-height: 44px;
+  }
+}
+
+/* ---------- 卡片 ④：observations 的记录列表（Day 22）----------
+   为什么不用上面的 .status-chips（色点胶囊）：
+   每条记录要显示**完整 uuid** 和两个动作按钮，胶囊那种横排根本挤不下 ⇒ 换成竖排的行。 */
+.status-records {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.status-record {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+  align-items: center;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+}
+
+.status-record-main {
+  grid-column: 1;
+  font-size: 12px;
+  color: #dbe3f2;
+  word-break: break-word;
+}
+
+/* id 单独一行、等宽小字。
+   ⚠️ **不截断**（word-break 换行而不是 ellipsis）：删是不可逆动作，
+      确认框里要拿它核对是不是那一条，截断过的 id 根本核不了。 */
+.status-record-id {
+  grid-column: 1;
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 10px;
+  color: #7f8aa3;
+  word-break: break-all;
+}
+
+.status-record-act {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  gap: 6px;
+}
+
+/* 行内小按钮：一行里要摆下两个，还得给记录文字留位置。
+   ⚠️ 只收窄 padding、**不降字号** —— 真挤的时候先牺牲留白，不要牺牲可读性。 */
+.btn-small {
+  padding: 3px 10px;
+}
+
+/* 删除按钮：红色系，和「改」在视觉上拉开距离 ——
+   这是全站唯一一个**不可逆**的动作，长得一样迟早点错。
+   ⚠️ 必须写在 .btn / .btn:hover 之后（同特异性下后面那条胜），才盖得住它们的配色。 */
+.btn-danger {
+  color: #f2a0a0;
+  border-color: rgba(242, 160, 160, 0.35);
+  background: rgba(242, 160, 160, 0.1);
+}
+
+.btn-danger:hover {
+  color: #ffd0d0;
+  background: rgba(242, 160, 160, 0.2);
+}
+
+/* 手机档：两列摆不下 ⇒ 记录本体与按钮改成上下排；
+   按钮撑满一行、高度垫到 44（手指标准）—— 删不可逆，更点不中不行。 */
+@media (max-width: 480px) {
+  .status-record {
+    grid-template-columns: 1fr;
+  }
+
+  .status-record-act {
+    grid-column: 1;
+    grid-row: auto;
+    margin-top: 6px;
+  }
+
+  .status-record-act .btn {
+    flex: 1;
     min-height: 44px;
   }
 }
