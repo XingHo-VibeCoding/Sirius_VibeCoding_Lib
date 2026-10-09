@@ -446,7 +446,8 @@ function getMethod(event) {
 }
 
 /* 取请求路径 —— 现在有两个用途：
- *   ① 日志（每个分支都打一条，用来确认请求到底进没进来）
+ *   ① 日志（Day 23 起**统一在 exports.main 里打一条**，不再每个分支各打一条 ——
+ *      分支里那种只在"正常走到该分支"时才打，参数非法 / 抛异常两类根本打不到）
  *   ② **读侧的资源分流**（见下面的 resourceOf()；Day 22 板块③ 步骤 2 起才成立）。
  * 原注释写的是「只用于日志与"POST 打到了读接口"这种明显误用的判断」—— 那句话已过期。 */
 function getPath(event) {
@@ -1032,18 +1033,76 @@ async function deleteObservation(event) {
 }
 
 /* ------------------------------------------------------------------
+ * 请求日志（Day 23 余力加练）
+ * ------------------------------------------------------------------
+ * 一行覆盖**所有**请求：时间 / 方法 / 路径 / 结果 / 耗时。
+ *   放在 exports.main 里 ⇒ 无论成功、参数被拒、还是抛异常，都一定会打一行。
+ *   （原先有 4 处分散在各分支里的 console.log，只有"方法 + 路径"，缺时间和结果；
+ *     而且"参数非法"与"未处理异常"这两类**完全打不到** —— 已删除，统一到这里，
+ *     免得同一个请求打两遍。）
+ *
+ * 🔴 刻意**只记这几样**：不记请求头、不记请求体。
+ *    请求头里有 Authorization（API Key），请求体里有用户自己写的备注 ——
+ *    日志是会被反复翻看的东西，不该把密钥和用户内容抄进去。
+ *    （Day 18 踩过一次：`tcb fn detail` 把 CLOUDBASE_APIKEY 整串明文打进了终端。）
+ *
+ * ⚠️ 时区：云函数容器跑的是 UTC。这里固定换算成北京时间（+08）再打印，
+ *    否则日志上的时间比人看到的少 8 小时（Day 20 在"今日日期"上踩过同一个坑）。
+ * ------------------------------------------------------------------ */
+
+/* 北京时间戳 —— 显式带 +08，读到日志的人不用猜它属于哪个时区。 */
+function bjStamp() {
+  return new Date(Date.now() + 8 * 3600 * 1000)
+    .toISOString().replace('T', ' ').slice(0, 19) + '+08';
+}
+
+/* query 拼回可读形式（值不做转义 —— 这行是给人看的，不是给机器解析的）。 */
+function queryText(query) {
+  const keys = Object.keys(query || {});
+  if (keys.length === 0) return '';
+  return '?' + keys.map(function (k) { return k + '=' + query[k]; }).join('&');
+}
+
+function logRequest(method, path, query, res, ms) {
+  const okFlag = res && res.ok === true;
+  const code = (res && res.error && res.error.code) || '';
+  console.log(
+    '[api][req] ' + bjStamp() +
+    '  ' + (method || '?') + ' ' + (path || '/') + queryText(query) +
+    '  →  ' + (okFlag ? 'ok' : 'FAIL' + (code ? '(' + code + ')' : '')) +
+    '  ' + ms + 'ms'
+  );
+}
+
+/* ------------------------------------------------------------------
  * 入口
  * ------------------------------------------------------------------ */
 
 exports.main = async function (event) {
+  const t0 = Date.now();
+  const method = getMethod(event);
+  const path = getPath(event);
+  const query = parseQuery(event);
+
+  let res;
   try {
-    return await dispatch(event, getMethod(event), getPath(event));
+    res = await dispatch(event, method, path);
   } catch (e) {
     /* 真实原因只进日志，**不直接回给前端**（避免把内部结构暴露给公网）。
        ⏳ Day 17 收尾：排查期临时带的 `｜[调试] …` 已删掉，恢复契约 1.4 的固定文案。 */
     console.error('[api] 未处理异常：', (e && e.stack) || e);
-    return errInternal();
+    res = errInternal();
   }
+
+  /* ⚠️ 写日志**绝不能**反过来把已经算好的响应搞丢：
+       单独裹一层 try —— 日志出问题最多多一行报错，接口该回什么还回什么。 */
+  try {
+    logRequest(method, path, query, res, Date.now() - t0);
+  } catch (e) {
+    console.error('[api] 写请求日志失败：', (e && e.message) || e);
+  }
+
+  return res;
 };
 
 /* 真正的分流（原 exports.main 的实体，原样搬进来，只把 method/path 改成入参） */
@@ -1072,7 +1131,6 @@ async function dispatch(event, method, path) {
         写侧（POST/PATCH/DELETE）**只认 method**；读侧除了 method 还认 path（见下面的 resourceOf()）。
         加新的写接口时别以为 path 会顺手帮你分流。 */
     if (method === 'POST') {
-      console.log('[api] POST ' + path);
       return await createObservation(event);
     }
 
@@ -1081,7 +1139,6 @@ async function dispatch(event, method, path) {
        ⚠️ 分流依据：**写侧只认 method**。query / httpMethod / body 全都透传；
           path 虽然在**读侧**已经可用（见下面 resourceOf()），但**写侧一律不用它**。 */
     if (method === 'PATCH') {
-      console.log('[api] PATCH ' + path);
       return await updateObservation(event);
     }
 
@@ -1090,7 +1147,6 @@ async function dispatch(event, method, path) {
        ⚠️ 到这一步，四种方法各自去哪已经一目了然：
           POST → 新增、PATCH → 修改、DELETE → 删除、GET/HEAD → 下面读那一段。 */
     if (method === 'DELETE') {
-      console.log('[api] DELETE ' + path);
       return await deleteObservation(event);
     }
 
@@ -1122,7 +1178,6 @@ async function dispatch(event, method, path) {
        📌 顺带修掉一个登记在册的错误行为：改这一步之前，`GET /api/observations`
           返回的是 **bodies 的 11 条列表**（契约 5.1 未解锁项）。从这一步起它第一次返回对的东西。 */
     if (resourceOf(event) === 'observations') {
-      console.log('[api] GET observations ' + path);
       return await listObservations();
     }
 
