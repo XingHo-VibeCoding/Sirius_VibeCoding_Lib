@@ -123,9 +123,30 @@
     el.setAttribute('data-kind', kind || '');
   }
 
+  /* ⭐ Day 23：错误码 → 一句人话（"三类错误统一中文提示"就落在这里）。
+     判据用的是**本来就有的** r.error.code（后端信封里一直有这个字段）——
+     所以这一步只是把"码"翻成人话，**没有新增任何异常处理机制**，
+     也没有加重试 / 拦截 / 上报之类的框架（守住"今日不做"那条）。
+     ⚠️ 只服务 failText / 写卡片 / deleteFailText 三处，别扩散。 */
+  function reasonText(code) {
+    switch (code) {
+      // 网络错：请求根本没到服务器，或者回来了但没被浏览器交给我们
+      case 'NETWORK': return '和服务器没连上（断网、地址不对，或者被拦住了）。';
+      // 输入错：服务器收到了，但不接受这次的内容
+      case 'BAD_REQUEST': return '这次请求的内容服务器不接受（参数缺了或者格式不对）。';
+      case 'NOT_FOUND': return '服务器上没找到这条数据（可能已经被删掉了）。';
+      // 服务端错：服务器自己出问题，跟用户的输入无关
+      case 'INTERNAL': return '服务器自己出错了，不是你的操作问题。';
+      default: return '这一趟没和服务器谈成（原因见下面的技术细节）。';
+    }
+  }
+
   /* 失败时的统一文案（两张"只读"卡片共用）。
      ⭐ 超时单独说 —— 它多半是"云函数还没睡醒"，跟"地址错 / 断网"不是一回事，
         而且**给得出下一步动作**（再点一次）。Day 20 实拍撞到的就是这种。
+     ⭐ Day 23 分了层：**第一行给人看**（哪一步 + 为什么 + 怎么办），
+        **括号里给排查的人看**（HTTP / 原始 message / 归类 note）。
+        检查台本来就是排查工具，技术细节要**留着** —— 只是别摆在最显眼的位置。
      ⚠️ 这里拼的是 textContent，别写 Markdown 星号 —— 会原样显示出来。 */
   function failText(what, r, retryLabel) {
     const code = (r.error && r.error.code) || '?';
@@ -133,9 +154,10 @@
       return '⏱ ' + what + '超时了 —— 等了超过 ' + Math.round(TIMEOUT_MS / 1000) + ' 秒没等到响应。\n' +
         '（多半是云函数在冷启动，不是服务挂了。点「' + retryLabel + '」再试一次，通常第二次就秒回。）';
     }
-    const msg = (r.error && r.error.message) || '(没有 message)';
-    return '❌ ' + what + '没成功。HTTP ' + (r.http === null ? '（没拿到）' : r.http) +
-      ' ／ ' + msg + ' ／ ' + r.note;
+    const msg = (r.error && r.error.message) || '服务器没说清原因（响应里没有说明文字）';
+    return '❌ ' + what + '没成功。' + reasonText(code) + '\n' +
+      '（技术细节：HTTP ' + (r.http === null ? '没拿到' : r.http) +
+      ' ／ ' + msg + ' ／ ' + r.note + '）';
   }
 
   /* ---------- 整页的「最后更新」时间戳（Day 20 余力加练） ---------- */
@@ -293,7 +315,7 @@
          而这次写的是 observations 表，两者无关，刷新也没变化。 */
     } else {
       const code = (r.error && r.error.code) || '?';
-      const msg = (r.error && r.error.message) || '(没有 message)';
+      const msg = (r.error && r.error.message) || '服务器没说清原因（响应里没有说明文字）';
       let text;
       if (code === 'TIMEOUT') {
         /* ⚠️ 写入超时**不能**简单说成"没写进去" —— 请求已经发出去了，
@@ -303,9 +325,9 @@
           '（多半是云函数在冷启动，不是服务挂了。⚠️ 超时≠没写进去：请求已经发出去了，服务端可能已经落库。\n' +
           '想确认：用同一个日期再提交一次 —— 被判「已有观测记录」= 上次其实成功了；这次提交成功 = 上次没写进去。）';
       } else {
-        text = '❌ 被拒了。\n发出的：' + sent +
-          '\n错误码：' + code + '\n说明：' + msg +
-          '\nHTTP ' + (r.http === null ? '（没拿到）' : r.http) +
+        text = '❌ 这条没写进去。' + reasonText(code) + '\n发出的：' + sent +
+          '\n（技术细节：错误码 ' + code +
+          ' ／ HTTP ' + (r.http === null ? '没拿到' : r.http) + ' ／ 说明 ' + msg + '）' +
           (code === 'BAD_REQUEST' && /已有观测记录/.test(msg)
             ? '\n（这是防重复机制在工作：同一天同一个天体只能记一条。换个日期或换个天体再试。）'
             : '');
@@ -491,9 +513,10 @@
         '⚠️ 超时≠没删掉：请求已经发出去了，服务端可能已经删了。\n' +
         '想确认：点「读一次」刷新列表 —— 那条**不在**列表里 = 已经删掉了；**还在** = 没删掉，可以再删一次。';
     }
-    const msg = (r.error && r.error.message) || '(没有 message)';
-    return '❌ 删除没成功。HTTP ' + (r.http === null ? '（没拿到）' : r.http) +
-      ' ／ ' + msg + ' ／ ' + r.note;
+    const msg = (r.error && r.error.message) || '服务器没说清原因（响应里没有说明文字）';
+    return '❌ 删除没成功。' + reasonText(code) + '\n' +
+      '（技术细节：HTTP ' + (r.http === null ? '没拿到' : r.http) +
+      ' ／ ' + msg + ' ／ ' + r.note + '）';
   }
 
   async function removeRecord(rec) {

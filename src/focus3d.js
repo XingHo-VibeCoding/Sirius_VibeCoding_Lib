@@ -499,8 +499,15 @@
       threeFailed = true;
       // TECH_DESIGN 第 6 节场景 1：3D 挂了，但 2D 主图和资料卡仍要能用
       if (window.showFallback) {
-        window.showFallback('3D 特写没能加载（' + err.message + '）。'
-          + '2D 主图和资料卡仍可正常使用。');
+        window.showFallback('3D 特写这次没打开，2D 主图和资料卡照常用。'
+          + '（技术细节已记在浏览器控制台）');
+      }
+      /* ⚠️ Day 23 统一三类错误提示：原始 err.message 是技术原文（可能带英文、
+         带内部函数名），**不给用户看**，但要留在控制台供排查 —— 所以另起一行 console.error，
+         与 src/fallback.js 的做法保持一致。 */
+      if (window.console && console.error) {
+        console.error('[focus3d] 3D 特写加载失败：' +
+          ((err && err.message) || '（服务器/浏览器都没给出说明）'), err);
       }
     });
   }
