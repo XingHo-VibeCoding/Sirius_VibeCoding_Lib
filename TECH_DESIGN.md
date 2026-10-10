@@ -117,6 +117,7 @@ Sirius_VibeCoding_Lib/
 ├── api-contract.md           接口契约（Day 15；v0.4.1）★ 接口形状的唯一依据
 ├── USER_TEST.md              真机测试记录（Day 14）
 ├── WEEK3_ACCEPTANCE.md       第 3 周验收表 + 同伴交叉验证 + 演示提纲（Day 21）
+├── CORE_FLOW_TEST.md         核心流程测试清单：检查台「读→写→刷新→改→删」完整链路（Day 24）★ 回归必跑
 ├── cloudbaserc.json          CloudBase 配置：云函数清单 + 网关路由（Day 15）
 ├── index.html                ← 唯一入口页面
 ├── .gitignore
