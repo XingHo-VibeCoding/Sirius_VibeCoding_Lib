@@ -5,6 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>重走太阳系 · 可交互的太阳系科普网页</title>
   <meta name="description" content="用图形、动画和中文引导词，帮你一点点看懂太阳系。">
+  <!-- 图标（Day 24 余力加练）：**必须声明**。
+       ⚠️ 不写这一行时，浏览器会自动去要 /favicon.ico —— 仓库里根本没有这个文件，
+          于是控制台留下一条 404（Day 24 板块① 捡到的唯一一条真报错）。
+       ⭐ 为什么用内联 SVG data URI，而不是新增一个 .ico 文件：
+          ① 不新增文件 —— 规则八.2 不许新建约定之外的目录/文件；
+          ② 不动静态托管白名单（14 个）—— 少一处要同步的地方；
+          ③ 浏览器**根本不会再发这个请求** ⇒ 404 从源头消失，不是"404 换个文件继续 404"。
+       图上：深色圆角底 + 橙色太阳 + 一条倾斜轨道（太阳系主题）。
+       ⚠️ data URI 里的 # 必须写成 %23（否则会被当成 fragment 截断），空格写成 %20。 -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20width='32'%20height='32'%20rx='7'%20fill='%230b1226'/%3E%3Cellipse%20cx='16'%20cy='16'%20rx='13'%20ry='5.5'%20fill='none'%20stroke='%234a5f9e'%20stroke-width='2'%20transform='rotate(-20%2016%2016)'/%3E%3Ccircle%20cx='16'%20cy='16'%20r='6'%20fill='%23f4a04a'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles/main.css">
 </head>
 <!-- data-view（Day 13）：当前在哪个视图。脚本只写这个属性，谁显示谁隐藏由 CSS 读它决定。
