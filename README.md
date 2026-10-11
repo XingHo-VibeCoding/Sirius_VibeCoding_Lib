@@ -88,6 +88,8 @@ VibeCoding/
 ├── api-contract.md         接口契约（Day 15 起；v0.4.1）
 ├── USER_TEST.md            真机测试记录（Day 14）
 ├── WEEK3_ACCEPTANCE.md     第 3 周验收表 + 同伴交叉验证 + 演示提纲（Day 21）
+├── SECURITY-AUDIT.md       安全自查说明与结论（Day 23）
+├── CORE_FLOW_TEST.md       核心流程测试清单：检查台「读 → 写 → 刷新 → 改 → 删」（Day 24）
 ├── cloudbaserc.json        CloudBase 配置：云函数清单 + 网关路由（Day 15）
 ├── README.md               本文件
 │
@@ -129,6 +131,15 @@ VibeCoding/
 ├── vendor/
 │   └── three.min.js        Three.js r128（本地文件，不从 CDN 引）
 │
+├── tests/                 可执行自检脚本
+│   ├── security-scan.sh   密钥与忽略规则自查（6 项，Day 23）
+│   └── observations-repo-smoke.cjs  观测记录数据访问层冒烟测试（Day 19）
+│
+├── .workbuddy/
+│   └── skills/            检查 Skill（项目产物，随代码一起提交）
+│       ├── catalog-filter-guard/  筛选交互的检查（Day 12）
+│       └── verify-project/        发布前检查 13 项（Day 25）
+│
 └── assets/
     └── flow-data.svg       数据流图
 ```
@@ -165,6 +176,95 @@ VibeCoding/
 
 ---
 
+## 发布前检查（要交作业、要发链接之前跑一遍）
+
+改完代码之后，跑一遍这个再发出去。它检查的**不是「功能还能不能用」**，
+而是**「你要交出去的，是不是你想交的那一份」**——这两件事不一样：
+
+| 这类毛病 | 为什么传统检查抓不到 |
+|---|---|
+| 代码改好了，**公网还是旧的**（忘了重新发布静态托管） | 本地怎么点都对，一发链接就穿帮 |
+| 发布副本**过时**了（忘了重新生成那一份） | 副本是发布源，本地看不出区别 |
+| 云端错误码是 `DATABASE_23505`（带前缀），代码里写全等 `=== '23505'` | **本地全绿、线上静默失效** |
+| `hidden` 属性设了，但 CSS 的 `display: flex` 把它盖掉 | 属性是对的，元素却关不掉 |
+
+**它们全都不报错。** 所以只能逐条主动去查。
+
+### 怎么跑
+
+第 1–10 项（不需要浏览器），在项目目录下：
+
+```bash
+bash .workbuddy/skills/verify-project/scripts/verify.sh
+```
+
+第 11–13 项要开浏览器。先**另开一个终端**起本地服务（这个窗口别关）。
+端口用 **8081**——就是「方式二」里 8080 被占用时换到的那个：
+
+```bash
+python -m http.server 8081 --bind 127.0.0.1
+```
+
+再回到原来的终端：
+
+```bash
+node .workbuddy/skills/verify-project/scripts/verify-ui.mjs
+```
+
+> `--bind 127.0.0.1` 不要省——不加的话，同一 Wi-Fi 下别人能打开这个网页，
+> 看到你电脑上的**文件清单**（原因见上面「方式二」第 2 条）。
+>
+> 网络不通、或者本地服务没起，相关几项会记成「未执行」，**不会**记成通过。
+
+### 检查了什么（13 项）
+
+| 组 | 项目 |
+|---|---|
+| 密钥与洁净 | ① 密钥扫描 ② 发布副本洁净 ③ 无调试残留 / 无写死路径 / 无伪块注释 |
+| 发布一致性 | ④ 白名单 + 目录登记 ⑤ 副本 = 仓库 ⑥ **公网 = 副本** |
+| 接口与云 | ⑦ 跨域白名单 ⑧ 接口契约 + 错误分支 ⑨ **唯一冲突码用「包含」判** ⑩ 环境变量没内联 |
+| 前端易回归 | ⑪ 遮罩 alpha = 1 ⑫ **`hidden` 真的隐藏** ⑬ 控制台 0 报错 |
+
+其中 **⑤ 和 ⑥ 是故意拆成两条的**：⑤ 查「副本跟不跟得上代码」，
+⑥ 查「公网跟不跟得上副本」。分开写是为了**一眼看出断在哪一环**——
+⑤ 红 = 忘了生成副本；⑥ 红 = 忘了发布。
+
+### 结果怎么读
+
+只有三种状态，没有第四种：
+
+- **PASS** —— 有实测值支撑
+- **FAIL** —— 有实测值证明它不成立
+- **未执行** —— 测不了（网络不通 / 服务没起 / 检查本轮为空）
+
+> **「未执行」不等于「通过」。「没有 FAIL」也不等于「全做完了」。**
+> 汇总那行要把 PASS / FAIL / 未执行三个数都念出来。
+
+### 怎么证明它不会「假绿」
+
+**全绿有两种可能**：① 东西真的是好的；② 判据是空的，根本查不出坏东西。
+光看全绿分不出这两种。区分办法只有一个——**故意把 Bug 放回去，看它会不会变红**：
+
+```bash
+# 看现在处于哪种状态（干净时应全绿）
+bash .workbuddy/skills/verify-project/scripts/mutation-test.sh status
+
+# 植入「改代码但没发布」，然后跑检查 —— ⑥ 应当变红，⑤ 应当仍是绿的
+bash .workbuddy/skills/verify-project/scripts/mutation-test.sh plant-6
+bash .workbuddy/skills/verify-project/scripts/verify.sh
+
+# 撤销（自动还原 + 回读核对 md5，并让 git status 自证干净）
+bash .workbuddy/skills/verify-project/scripts/mutation-test.sh undo
+```
+
+可植入三种：`plant-4b`（副本夹带文件）、`plant-6`（改代码不发布）、
+`plant-hidden`（去掉 `[hidden]` 兜底——就是「编辑区点了取消还关不掉」那个坑的重现）。
+
+每一项的判据、出处和当初是怎么发现这个坑的，见
+[`.workbuddy/skills/verify-project/SKILL.md`](.workbuddy/skills/verify-project/SKILL.md)。
+
+---
+
 ## 相关文档
 
 | 文件 | 内容 |
@@ -173,4 +273,9 @@ VibeCoding/
 | `research.md` | 需求研究：同类产品实证核实、本期边界 |
 | `PRD.md` | 产品需求文档：功能清单、优先级、验收标准 V1–V10 |
 | `TECH_DESIGN.md` | 技术设计：技术路线与取舍、项目结构、数据流、错误处理 |
+| `api-contract.md` | 接口契约：响应信封、字段、错误码——接口形状的唯一依据 |
+| `USER_TEST.md` | 真机测试记录：多设备实测的任务卡与结果 |
+| `WEEK3_ACCEPTANCE.md` | 第 3 周验收表、同伴交叉验证记录、演示提纲 |
+| `SECURITY-AUDIT.md` | 安全自查：扫描范围、6 项结论、已知风险与待办 |
 | `CORE_FLOW_TEST.md` | 核心流程测试清单：检查台「读 → 写 → 刷新确认 → 改 → 删」完整链路，含三态判定纪律与回归记录表 |
+| `.workbuddy/skills/verify-project/SKILL.md` | 发布前检查 Skill：13 项可执行检查与判据 |

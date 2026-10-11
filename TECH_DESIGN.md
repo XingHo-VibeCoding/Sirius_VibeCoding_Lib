@@ -117,10 +117,13 @@ Sirius_VibeCoding_Lib/
 ├── api-contract.md           接口契约（Day 15；v0.4.1）★ 接口形状的唯一依据
 ├── USER_TEST.md              真机测试记录（Day 14）
 ├── WEEK3_ACCEPTANCE.md       第 3 周验收表 + 同伴交叉验证 + 演示提纲（Day 21）
+├── SECURITY-AUDIT.md         安全自查说明与结论（Day 23）
 ├── CORE_FLOW_TEST.md         核心流程测试清单：检查台「读→写→刷新→改→删」完整链路（Day 24）★ 回归必跑
+├── README.md                 项目介绍、怎么跑、目录结构、数据来源
 ├── cloudbaserc.json          CloudBase 配置：云函数清单 + 网关路由（Day 15）
 ├── index.html                ← 唯一入口页面
 ├── .gitignore
+├── .env.example              环境变量模板（只有空占位，真值在控制台注入）
 │
 ├── src/
 │   ├── data/
@@ -149,6 +152,10 @@ Sirius_VibeCoding_Lib/
 ├── db/                       PostgreSQL 建表与种子（Day 16）
 │   ├── schema.sql / seed.sql / gen-seed.mjs
 │
+├── tests/                    可执行自检脚本（**Day 23 起；Day 25 补登记**）
+│   ├── security-scan.sh      密钥与忽略规则自查（6 项，Day 23）
+│   └── observations-repo-smoke.cjs  观测记录数据访问层的冒烟测试（Day 19）
+│
 ├── styles/
 │   └── main.css              全部样式
 │
@@ -157,7 +164,13 @@ Sirius_VibeCoding_Lib/
 │
 ├── .workbuddy/
 │   └── skills/
-│       └── catalog-filter-guard/   筛选交互的检查 Skill（Day 12；**项目产物**，随代码一起提交）
+│       ├── catalog-filter-guard/   筛选交互的检查 Skill（Day 12；**项目产物**，随代码一起提交）
+│       └── verify-project/         发布前检查 Skill：13 项，逐条 PASS/FAIL + 证据（Day 25）
+│           ├── SKILL.md            清单与判据（每项写明执行命令、通过标准、出处）
+│           └── scripts/
+│               ├── verify.sh           第 1–10 项：密钥洁净 / 发布一致性 / 接口与云
+│               ├── verify-ui.mjs       第 11–13 项：浏览器行为（零依赖 CDP）
+│               └── mutation-test.sh    变异测试：故意植入三个 Bug，证明断言不是空的
 │
 └── assets/
     ├── flow-data.svg         ← 数据流图（板块③ 产出）
