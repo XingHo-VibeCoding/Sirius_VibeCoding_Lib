@@ -90,6 +90,8 @@ VibeCoding/
 ├── WEEK3_ACCEPTANCE.md     第 3 周验收表 + 同伴交叉验证 + 演示提纲（Day 21）
 ├── SECURITY-AUDIT.md       安全自查说明与结论（Day 23）
 ├── CORE_FLOW_TEST.md       核心流程测试清单：检查台「读 → 写 → 刷新 → 改 → 删」（Day 24）
+├── RELEASE_v1.0.md         发布清单：版本标记 / 发布前验证 / 发布步骤 / 发布后验证 / 备份方式（Day 26）
+├── ROLLBACK.md             回滚手册：触发条件 / 回退步骤 / 回滚后验证（Day 26）
 ├── cloudbaserc.json        CloudBase 配置：云函数清单 + 网关路由（Day 15）
 ├── README.md               本文件
 │
@@ -279,3 +281,5 @@ bash .workbuddy/skills/verify-project/scripts/mutation-test.sh undo
 | `SECURITY-AUDIT.md` | 安全自查：扫描范围、6 项结论、已知风险与待办 |
 | `CORE_FLOW_TEST.md` | 核心流程测试清单：检查台「读 → 写 → 刷新确认 → 改 → 删」完整链路，含三态判定纪律与回归记录表 |
 | `.workbuddy/skills/verify-project/SKILL.md` | 发布前检查 Skill：13 项可执行检查与判据 |
+| `RELEASE_v1.0.md` | 发布清单：版本标记、发布前验证项、发布步骤、发布后验证、代码与数据备份方式 |
+| `ROLLBACK.md` | 回滚手册：触发条件、静态托管与云函数各自的回退步骤、回滚后验证、演练记录 |
