@@ -156,6 +156,28 @@ body[data-page-state="error"] #control-bar {
   color: #a8b2c8;
 }
 
+/* Day 27：检查台入口（页脚）。
+   它同时解决了一个真问题 —— 公网「风险提醒」中间页会在过门时把 hash 改写掉，
+   所以"让用户手输 #/status"这条路**第一次走不通**；而页内链接只改 hash、不触发导航。
+   样式做成**一眼看得出能点**（下划线 + 更亮的颜色），手机上给足点击面积。 */
+.page-footer .page-entry {
+  margin-top: 6px;
+}
+
+.page-footer .page-entry a {
+  display: inline-block;
+  padding: 6px 12px;
+  color: #c9d3e8;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  border-radius: 6px;
+}
+
+.page-footer .page-entry a:hover {
+  color: #eef2fa;
+  background: rgba(255, 255, 255, 0.06);
+}
+
 /* ============================================================
  * 资料卡（点击天体后出现）
  * 依据：PRD 5.2-4「数字必须配图形化对比」、5.2-5「面向零基础」

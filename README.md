@@ -92,6 +92,8 @@ VibeCoding/
 ├── CORE_FLOW_TEST.md       核心流程测试清单：检查台「读 → 写 → 刷新 → 改 → 删」（Day 24）
 ├── RELEASE_v1.0.md         发布清单：版本标记 / 发布前验证 / 发布步骤 / 发布后验证 / 备份方式（Day 26）
 ├── ROLLBACK.md             回滚手册：触发条件 / 回退步骤 / 回滚后验证（Day 26）
+├── TRIAL_TASK.md           第三方试用：外行任务卡 + 记录表模板 + 预埋点登记（Day 27）
+├── RESOURCE_STATUS.md      资源与到期说明：用量 / 到期 / 导出数据的检查步骤（Day 27）
 ├── cloudbaserc.json        CloudBase 配置：云函数清单 + 网关路由（Day 15）
 ├── README.md               本文件
 │
@@ -283,3 +285,5 @@ bash .workbuddy/skills/verify-project/scripts/mutation-test.sh undo
 | `.workbuddy/skills/verify-project/SKILL.md` | 发布前检查 Skill：13 项可执行检查与判据 |
 | `RELEASE_v1.0.md` | 发布清单：版本标记、发布前验证项、发布步骤、发布后验证、代码与数据备份方式 |
 | `ROLLBACK.md` | 回滚手册：触发条件、静态托管与云函数各自的回退步骤、回滚后验证、演练记录 |
+| `TRIAL_TASK.md` | 第三方试用：给外行的任务卡（只说"做什么"，不说为什么）、记录表模板、4 处预埋点登记、组织者纪律、修复归档（排序 / 修复提示词 / 复验最小任务） |
+| `RESOURCE_STATUS.md` | 资源与到期说明：当前用量、到期时间、导出数据的检查步骤（含"零密钥导出"与填表/结论模板） |

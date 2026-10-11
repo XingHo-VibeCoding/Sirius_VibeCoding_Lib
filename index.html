@@ -382,6 +382,13 @@
     <p>数据来源：NASA Planetary Fact Sheet ／ NASA Sun Fact Sheet（逐条标注见 <code>src/data/bodies.js</code>）</p>
     <!-- Day 26｜v1.0 版本标记（它同时是回滚演练的观察点） -->
     <p class="page-version">重走太阳系 · v1.0</p>
+    <!-- Day 27｜检查台入口（来自试用反馈：3 位试用者里 2 位找不到"记录我的观测"的地方）。
+         ⚠️ 为什么做成**页内链接**，而不是教用户"在地址栏末尾加 #/status"：
+         公网的「风险提醒」中间页会在**过门那一刻把 hash 改写成 #/explore** ——
+         Day 27 用微信 UA 实测：**第一次**输 #/status 会落到太阳系主图（第二次才进得去）。
+         而**页面内点链接只改 hash、不触发导航 ⇒ 碰不到中间页**。
+         ⇒ 这是"能稳定到达检查台"的路径。 -->
+    <p class="page-entry"><a href="#/status">检查台 · 记录我的观测</a></p>
   </footer>
 
   <!-- 3D 聚焦遮罩（Day 13 起由详情页的「看 3D 特写」按钮打开，仍然是浮层）。
