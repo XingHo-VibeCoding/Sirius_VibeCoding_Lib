@@ -149,7 +149,7 @@ VibeCoding/
 └── assets/
     ├── flow-data.svg       数据流图
     ├── layers-api.svg      后端分层结构图（Day 19）
-    └── evidence/           交付证据图（Day 28）：移动端截图 + 公网读写证据，见其 INDEX.md
+    └── evidence/           交付证据图（Day 28）：移动端截图 + 公网读写证据 + 结营交付截图（final/），见其 INDEX.md
 ```
 
 > **后端为什么分两个目录**（Day 19 重构）：
