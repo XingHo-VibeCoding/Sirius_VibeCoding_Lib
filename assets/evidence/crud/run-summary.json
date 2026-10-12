@@ -1,0 +1,25 @@
+{
+  "ranAt": "2026-10-11T12:29:05.712Z",
+  "base": "https://solar-system-d3g10b341a8d66aa6-1483420860.tcloudbaseapp.com",
+  "api": "https://solar-system-d3g10b341a8d66aa6-1483420860.ap-shanghai.app.tcloudbase.com",
+  "baseN": 0,
+  "testRecord": {
+    "id": "9984af94-e2f0-4223-8a91-a73393ccfc98",
+    "bodyId": "neptune",
+    "observedOn": "2026-12-31",
+    "statusBefore": "observed",
+    "statusAfter": "missed",
+    "noteBefore": "改之前·原始备注",
+    "noteAfter": "改之后·新备注"
+  },
+  "assertions": {
+    "pass": 61,
+    "fail": 0
+  },
+  "shots": [
+    "01-patch-after.png",
+    "01b-after-reload.png",
+    "02-delete-after.png"
+  ],
+  "claim": "读→写→**真刷新**→改→删 全链路在公网走通；跑完数据库精确回到 baseN（无副作用）"
+}

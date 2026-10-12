@@ -94,6 +94,8 @@ VibeCoding/
 ├── ROLLBACK.md             回滚手册：触发条件 / 回退步骤 / 回滚后验证（Day 26）
 ├── TRIAL_TASK.md           第三方试用：外行任务卡 + 记录表模板 + 预埋点登记（Day 27）
 ├── RESOURCE_STATUS.md      资源与到期说明：用量 / 到期 / 导出数据的检查步骤（Day 27）
+├── FINAL_ACCEPTANCE.md     最终验收表与项目映射表：100 分表自查 / 能力底线对应 / 提示词改写 / 交付清单（Day 28）
+├── DEMO_SCRIPT.md          演示脚本：3–5 分钟录屏的提纲 / 分镜 / 逐句提词 / 录制前准备与容错（Day 28）
 ├── cloudbaserc.json        CloudBase 配置：云函数清单 + 网关路由（Day 15）
 ├── README.md               本文件
 │
@@ -145,7 +147,9 @@ VibeCoding/
 │       └── verify-project/        发布前检查 13 项（Day 25）
 │
 └── assets/
-    └── flow-data.svg       数据流图
+    ├── flow-data.svg       数据流图
+    ├── layers-api.svg      后端分层结构图（Day 19）
+    └── evidence/           交付证据图（Day 28）：移动端截图 + 公网读写证据，见其 INDEX.md
 ```
 
 > **后端为什么分两个目录**（Day 19 重构）：
@@ -287,3 +291,5 @@ bash .workbuddy/skills/verify-project/scripts/mutation-test.sh undo
 | `ROLLBACK.md` | 回滚手册：触发条件、静态托管与云函数各自的回退步骤、回滚后验证、演练记录 |
 | `TRIAL_TASK.md` | 第三方试用：给外行的任务卡（只说"做什么"，不说为什么）、记录表模板、4 处预埋点登记、组织者纪律、修复归档（排序 / 修复提示词 / 复验最小任务） |
 | `RESOURCE_STATUS.md` | 资源与到期说明：当前用量、到期时间、导出数据的检查步骤（含"零密钥导出"与填表/结论模板） |
+| `FINAL_ACCEPTANCE.md` | 最终验收表与项目映射表：附录 J 100 分表逐项自查、能力底线对应表、提示词改写与复盘、结营交付清单 |
+| `DEMO_SCRIPT.md` | 演示脚本：3–5 分钟录屏的提纲、六段分镜与逐句提词、录制前准备清单、录制容错与录完自查 |
