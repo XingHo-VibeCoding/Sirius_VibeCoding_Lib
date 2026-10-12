@@ -24,7 +24,7 @@
 | 2 | 前端页面与交互 | 15 | 3 个页面/视图、反馈状态和移动端截图 | **4 个视图**：`#/explore` 探索 · `#/catalog` 图鉴 · `#/body/<id>` 详情 · `#/status` 检查台；**反馈状态**：接口失败态（兜底提示条 + 主图照常渲染）、3D 加载失败态（可读提示 + 不白屏）、筛选无匹配（带"清空筛选"出口）、检查台逐条 `✅/❌` 结果行；**移动端 390×844 @2x 共 13 张** → `assets/evidence/mobile/` | `PASS` |
 | 3 | 云函数与 API | 15 | 健康、读取、写入和错误响应 | `GET /api/health` → `{"ok":true,…}`；`GET /api/bodies` → `total = 11`；`POST / PATCH / DELETE /api/observations` 全通；**三类错误**统一中文提示（输入错／网络错／服务端错）；接口形状见 `api-contract.md`（v0.5） | `PASS` |
 | 4 | 云数据库（PostgreSQL 或等效云数据库） | 15 | 初始化、真实读写、修改/删除和持久化 | 初始化：`db/schema.sql` + `db/seed.sql`（`bodies` 11 行 · `sources` 4 行）；**公网实测**走完「写 → **真刷新** → 改 → 删」→ `assets/evidence/crud/`（含 `run-summary.json`）；**无副作用**：跑完精确回到跑前条数 | `PASS` |
-| 5 | 第三周周成果 | 10 | 云端数据服务 v1、检查台和演示证据 | 云端数据服务 v1：`cloudfunctions/api/`（四层分层，见 `TECH_DESIGN.md` §13）；检查台 `#/status` 4 张卡片；**演示证据**：3D 移动端验收 **26 通过 / 0 失败** + `assets/evidence/mobile/` + `WEEK3_ACCEPTANCE.md`（含演示提纲）+ 录屏 `assets/evidence/final/demo-2026-10-12.mp4`（⚠️ 该录屏**1:14 · 静音 · 未演写入链**，缺陷记在下方 §D 第 3 条） | `PASS` |
+| 5 | 第三周周成果 | 10 | 云端数据服务 v1、检查台和演示证据 | 云端数据服务 v1：`cloudfunctions/api/`（四层分层，见 `TECH_DESIGN.md` §13）；检查台 `#/status` 4 张卡片；**演示证据**：3D 移动端验收 **26 通过 / 0 失败** + `assets/evidence/mobile/` + `WEEK3_ACCEPTANCE.md`（含演示提纲）+ 录屏两份 `assets/evidence/final/demo-1-2026-10-12.mp4`（1:13.93 · 静音 · **演了写入**）与 `demo-2-2026-10-12.mp4`（**3:12.94** · 有讲解 · 未演刷新/删除）—— ⚠️ **两份各缺一半**，缺陷记在下方 §D 第 3 条） | `PASS` |
 | 6 | Skill 与测试 | 10 | Skill 调用、故意失败、Bug 修复和回归 | **Skill 调用**：`catalog-filter-guard`（筛选）/ `verify-project`（发布前 13 项）/ `h5-mobile-visual-qa`；**故意失败**：挡掉 `three.min.js` → `assets/evidence/mobile/body-saturn-3d-3d-fallback.png`；**Bug 修复 + 回归**：兜底提示条盖住页脚入口（`TECH_DESIGN.md` §12.8）；`mutation-test.sh` 用"植入 Bug"证明断言不假绿 | `PASS` |
 | 7 | 线上发布（CloudBase 或等效平台） | 10 | 公网地址、线上读写、日志和数据库证据 | 公网双地址（见上表）；**线上读写**：`assets/evidence/crud/`；**日志**：`fn invoke` 带回当次调用日志（做法见 `MEMORY-stack.md`）；**数据库证据**：`?id=` 详情与列表读数一致 | `PASS` |
 | 8 | 额度、到期和备份 | 5 | 到期时间、计费状态和数据导出说明 | `RESOURCE_STATUS.md`（用量 / 到期 / **零密钥导出**步骤 / 填表区与结论模板）；**控制台实时截图** → `assets/evidence/final/console-quota-2026-10-12.png`（**2801.48 / 3000 点 · 即将超额**）；`ROLLBACK.md`（回滚演练实测 **29 秒**） | `PASS` |
@@ -97,7 +97,7 @@ C-2 和 C-3 之所以能成立，也是因为它先定下了"我不懂的要讲�
 |---|---|---|---|
 | 1 | 公网地址 | ✅ | 见本文开头表格（静态托管 + 网关双地址） |
 | 2 | 代码仓库链接 | ✅ | https://github.com/XingHo-VibeCoding/Sirius_VibeCoding_Lib |
-| 3 | 3–5 分钟演示录屏 | ⚠️ **已录 · 部分完成** | 🔴 **1:14**（没到 3 分钟）＋ **全程静音**（无讲解）＋ **未演示「写入 → 刷新 → 还在 → 删除」** ⇒ 文件 `assets/evidence/final/demo-2026-10-12.mp4`；**真实情况与重录要点见 `DEMO_SCRIPT.md` §5** |
+| 3 | 3–5 分钟演示录屏 | ⚠️ **已录两份 · 各缺一半（未达标）** | **`demo-1`**（16:42 录）**1:13.93** ／ **全程静音**，但**演了「写入」**（第 **62 秒**：请求体 ＋ 服务端回填 `id ec3818ba-…` ／ `HTTP 200`）；**`demo-2`**（17:16 录）**3:12.94** ✅ ／ **有讲解** ✅，但**没演「写入 → 刷新 → 还在 → 删除」** ⇒ 两份都在 `assets/evidence/final/`；**真实情况与将来补录要点见 `DEMO_SCRIPT.md` §5** |
 | 4 | 最终验收表和项目映射表 | ✅ | **本文档**（A / B 两张表） |
 | 5 | 一条最有效的改写提示词 | ✅ | 本文 **§C 末尾**（三条里选 C-1，附理由） |
 | 6 | 运行和技术路线说明 | ✅ | `README.md`（怎么跑 · 目录结构 · 数据来源）+ `TECH_DESIGN.md`（技术路线与取舍） |
